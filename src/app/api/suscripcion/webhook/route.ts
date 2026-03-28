@@ -4,7 +4,6 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
 // Desactivar el body parser de Next.js para poder leer el raw body
-export const config = { api: { bodyParser: false } }
 
 export async function POST(req: NextRequest) {
   const body      = await req.text()
