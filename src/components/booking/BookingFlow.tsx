@@ -46,8 +46,8 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const barberoSeleccionado  = barberos.find(b => b.id === barberoId)
 
   // Generar días disponibles (hoy + max_dias_adelanto)
-  const diasDisponibles = Array.from({ length: negocio.max_dias_adelanto }, (_, i) => addDays(new Date(), i + 1))
-    .filter(d => {
+  const diasDisponibles = Array.from({ length: negocio.max_dias_adelanto }, (_, i) => addDays(new Date(), i))
+  .filter(d => {
       const dia = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][d.getDay()]
       return negocio.horario[dia]?.abierto
     })
