@@ -32,7 +32,7 @@ export function generarSlots(
   fecha: Date,
   horario: Horario,
   duracionMin: number,
-  reservasExistentes: Reserva[],
+  reservasExistentes: any[],
   bloqueos: Bloqueo[],
   barberoId?: string
 ): SlotDisponible[] {
