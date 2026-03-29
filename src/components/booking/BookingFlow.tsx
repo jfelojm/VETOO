@@ -72,10 +72,16 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       setCargandoSlots(false)
     }
 
-  async function onSubmitDatos(data: ClienteData) {
-    const fechaHora = new Date(fecha!)
     const [h, m] = hora.split(':').map(Number)
-    fechaHora.setHours(h, m, 0, 0)
+    const fechaHora = new Date(
+      fecha!.getFullYear(),
+      fecha!.getMonth(),
+      fecha!.getDate(),
+      h, m, 0, 0
+    )
+    // Ajustar a UTC-5 (Ecuador)
+    const offsetMs = 5 * 60 * 60 * 1000
+    const fechaUTC = new Date(fechaHora.getTime() + offsetMs)
 
     const payload = {
       negocio_id:   negocio.id,
@@ -84,7 +90,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       nombre:       data.nombre,
       telefono:     data.telefono,
       email:        data.email || null,
-      fecha_hora:   fechaHora.toISOString(),
+      fecha_hora: fechaUTC.toISOString(),
       notas_cliente: data.notas || null,
       politica_aceptada: true,
     }
