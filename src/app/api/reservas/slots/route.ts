@@ -5,7 +5,7 @@ import { addMinutes, format } from 'date-fns'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const negocioId = searchParams.get('negocio_id')
-  const fechaIso  = searchParams.get('fecha_iso') // formato: YYYY-MM-DD
+  const fechaIso  = searchParams.get('fecha_iso')
   const barberoId = searchParams.get('barbero_id') || undefined
 
   if (!negocioId || !fechaIso) {
@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
   if (!negocio) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
 
   const [anio, mes, dia] = fechaIso.split('-').map(Number)
-  const fecha = new Date(anio, mes - 1, dia, 12, 0, 0)
   const DIAS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado']
-  const diaNombre = DIAS[fecha.getDay()]
+  const diaSemana = new Date(anio, mes - 1, dia).getDay()
+  const diaNombre = DIAS[diaSemana]
   const horarioDia = negocio.horario?.[diaNombre]
 
   if (!horarioDia?.abierto || !horarioDia?.desde || !horarioDia?.hasta) {
@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
   const fin    = new Date(anio, mes - 1, dia, hHasta, mHasta, 0)
   const duracion = negocio.duracion_turno_min
 
-  // Buscar reservas del día usando rango UTC completo
   const inicioUTC = new Date(Date.UTC(anio, mes - 1, dia, 0, 0, 0))
   const finUTC    = new Date(Date.UTC(anio, mes - 1, dia, 23, 59, 59))
 
@@ -68,15 +67,11 @@ export async function GET(req: NextRequest) {
     const slotFin = addMinutes(cursor, duracion)
     const horaStr = format(cursor, 'HH:mm')
 
-    // NO filtramos por hora actual aquí — lo hace el cliente
     const tieneReserva = (reservas ?? []).some((r: any) => {
       if (barberoId && r.barbero_id !== barberoId) return false
       const rInicio = new Date(r.fecha_hora)
-      // Convertir la hora UTC de la reserva a hora local del slot
-      const offsetLocal = inicio.getTimezoneOffset() * 60000
-      const rInicioLocal = new Date(rInicio.getTime() + offsetLocal)
-      const rFinLocal    = addMinutes(rInicioLocal, r.duracion)
-      return cursor < rFinLocal && slotFin > rInicioLocal
+      const rFin    = addMinutes(rInicio, r.duracion)
+      return cursor < rFin && slotFin > rInicio
     })
 
     const estaBloqueado = (bloqueos ?? []).some((b: any) => {
