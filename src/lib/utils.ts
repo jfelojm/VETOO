@@ -39,13 +39,16 @@ export function generarSlots(
   const dia = getDiaSemana(fecha)
   const horarioDia: HorarioDia = horario[dia]
 
-  if (!horarioDia.abierto || !horarioDia.desde || !horarioDia.hasta) {
+  if (!horarioDia || !horarioDia.abierto || !horarioDia.desde || !horarioDia.hasta) {
     return []
   }
 
+  const desde = String(horarioDia.desde)
+  const hasta = String(horarioDia.hasta)
+
   const slots: SlotDisponible[] = []
-  const [hDesde, mDesde] = horarioDia.desde.split(':').map(Number)
-  const [hHasta, mHasta] = horarioDia.hasta.split(':').map(Number)
+  const [hDesde, mDesde] = desde.split(':').map(Number)
+const [hHasta, mHasta] = hasta.split(':').map(Number)
 
   const inicio = new Date(fecha)
   inicio.setHours(hDesde, mDesde, 0, 0)
