@@ -18,22 +18,34 @@ type FormData = z.infer<typeof schema>
 export default function LoginPage() {
   const supabase = createClient()
   const [verPassword, setVerPassword] = useState(false)
+  const [cargando, setCargando] = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   async function onSubmit(data: FormData) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    })
-    if (error) {
-      toast.error('Email o contraseña incorrectos')
-      return
+    setCargando(true)
+    try {
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+      if (error) {
+        toast.error('Email o contraseña incorrectos')
+        setCargando(false)
+        return
+      }
+      if (authData.session) {
+        toast.success('Bienvenido')
+        setTimeout(() => {
+          window.location.replace('/dashboard')
+        }, 500)
+      }
+    } catch {
+      toast.error('Error al iniciar sesión')
+      setCargando(false)
     }
-    toast.success('Bienvenido')
-    window.location.replace('/dashboard')
   }
 
   return (
@@ -67,8 +79,8 @@ export default function LoginPage() {
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
             </div>
 
-            <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
-              {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
+            <button type="submit" disabled={cargando} className="btn-primary w-full">
+              {cargando ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
           </form>
         </div>
