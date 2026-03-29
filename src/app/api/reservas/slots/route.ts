@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   )
 
   const fecha = new Date(fechaStr)
+  // Ajustar a medianoche local del día seleccionado
+  fecha.setHours(12, 0, 0, 0)
 
   const { data: negocio } = await supabase
     .from('negocios')
