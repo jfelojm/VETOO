@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
 
   if (!negocio) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
 
-  // Determinar el día de la semana
   const [anio, mes, dia] = fechaIso.split('-').map(Number)
   const fecha = new Date(anio, mes - 1, dia, 12, 0, 0)
   const DIAS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado']
@@ -36,7 +35,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ slots: [] })
   }
 
-  // Generar slots del día
   const [hDesde, mDesde] = String(horarioDia.desde).split(':').map(Number)
   const [hHasta, mHasta] = String(horarioDia.hasta).split(':').map(Number)
 
@@ -44,7 +42,7 @@ export async function GET(req: NextRequest) {
   const fin    = new Date(anio, mes - 1, dia, hHasta, mHasta, 0)
   const duracion = negocio.duracion_turno_min
 
-  // Cargar reservas del día en UTC (guardadas en UTC en la DB)
+  // Buscar reservas del día usando rango UTC completo
   const inicioUTC = new Date(Date.UTC(anio, mes - 1, dia, 0, 0, 0))
   const finUTC    = new Date(Date.UTC(anio, mes - 1, dia, 23, 59, 59))
 
@@ -63,7 +61,6 @@ export async function GET(req: NextRequest) {
     .lte('fecha_desde', finUTC.toISOString())
     .gte('fecha_hasta', inicioUTC.toISOString())
 
-  // Generar slots
   const slots = []
   let cursor = new Date(inicio)
 
@@ -71,20 +68,17 @@ export async function GET(req: NextRequest) {
     const slotFin = addMinutes(cursor, duracion)
     const horaStr = format(cursor, 'HH:mm')
 
-    // Verificar si ya pasó (hora local del día)
-    const ahoraLocal = new Date()
-    const yaPaso = cursor < ahoraLocal
-
-    // Verificar conflicto con reservas
+    // NO filtramos por hora actual aquí — lo hace el cliente
     const tieneReserva = (reservas ?? []).some((r: any) => {
       if (barberoId && r.barbero_id !== barberoId) return false
-      // Las reservas están en UTC, comparar correctamente
       const rInicio = new Date(r.fecha_hora)
-      const rFin    = addMinutes(rInicio, r.duracion)
-      return cursor < rFin && slotFin > rInicio
+      // Convertir la hora UTC de la reserva a hora local del slot
+      const offsetLocal = inicio.getTimezoneOffset() * 60000
+      const rInicioLocal = new Date(rInicio.getTime() + offsetLocal)
+      const rFinLocal    = addMinutes(rInicioLocal, r.duracion)
+      return cursor < rFinLocal && slotFin > rInicioLocal
     })
 
-    // Verificar bloqueos
     const estaBloqueado = (bloqueos ?? []).some((b: any) => {
       if (barberoId && b.barbero_id && b.barbero_id !== barberoId) return false
       const bInicio = new Date(b.fecha_desde)
@@ -94,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     slots.push({
       hora: horaStr,
-      disponible: !yaPaso && !tieneReserva && !estaBloqueado,
+      disponible: !tieneReserva && !estaBloqueado,
     })
 
     cursor = addMinutes(cursor, duracion)
