@@ -52,15 +52,18 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       return negocio.horario[dia]?.abierto
     })
 
-  async function cargarSlots(diaSeleccionado: Date) {
-    setCargandoSlots(true)
-    setSlots([])
-    try {
-      const params = new URLSearchParams({
-        negocio_id: negocio.id,
-        fecha:      diaSeleccionado.toISOString(),
-        barbero_id: barberoId,
-      })
+    async function cargarSlots(diaSeleccionado: Date) {
+      setCargandoSlots(true)
+      setSlots([])
+      try {
+        // Usar mediodía del día seleccionado para evitar problemas de zona horaria
+        const fechaLocal = new Date(diaSeleccionado)
+        fechaLocal.setHours(12, 0, 0, 0)
+        const params = new URLSearchParams({
+          negocio_id: negocio.id,
+          fecha:      fechaLocal.toISOString(),
+          barbero_id: barberoId,
+        })
       const res  = await fetch(`/api/reservas/slots?${params}`)
       const data = await res.json()
       setSlots(data.slots ?? [])
