@@ -64,7 +64,7 @@ const [hHasta, mHasta] = hasta.split(':').map(Number)
     const horaStr = format(cursor, 'HH:mm')
 
     // ¿Ya pasó?
-    const yaPaso = cursor <= ahora
+    const yaPaso = cursor.getTime() < ahora.getTime()
 
     // ¿Choca con una reserva activa?
     const tieneReserva = reservasExistentes.some(r => {
