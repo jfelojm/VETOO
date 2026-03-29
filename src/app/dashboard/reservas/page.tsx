@@ -130,7 +130,7 @@ export default function ReservasPage() {
               <div className="flex items-start gap-4">
                 {/* Hora */}
                 <div className="text-center shrink-0 w-14">
-                <p className="text-lg font-bold text-brand-600">{format(new Date(r.fecha_hora), 'HH:mm')}</p>
+                <p className="text-lg font-bold text-brand-600">{new Date(r.fecha_hora).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
                   <p className="text-xs text-gray-400">{r.duracion} min</p>
                 </div>
 
