@@ -4,12 +4,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format, addDays, parseISO, isSameDay } from 'date-fns'
+import { format, addDays, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CheckCircle, Clock, Scissors, User, Calendar } from 'lucide-react'
+import { ChevronLeft, CheckCircle, Clock, Scissors, User, Calendar } from 'lucide-react'
 import type { Negocio, Barbero, Servicio, SlotDisponible } from '@/types'
-import { formatPrecio, generarSlots } from '@/lib/utils'
+import { formatPrecio } from '@/lib/utils'
 
 interface Props {
   negocio: Negocio & { horario: any }
@@ -36,7 +36,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const [hora, setHora] = useState<string>('')
   const [slots, setSlots] = useState<SlotDisponible[]>([])
   const [cargandoSlots, setCargandoSlots] = useState(false)
-  const [reservaId, setReservaId] = useState<string>('')
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ClienteData>({
     resolver: zodResolver(clienteSchema),
@@ -45,38 +44,40 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const servicioSeleccionado = servicios.find(s => s.id === servicioId)
   const barberoSeleccionado  = barberos.find(b => b.id === barberoId)
 
-  // Generar días disponibles (hoy + max_dias_adelanto)
   const diasDisponibles = Array.from({ length: negocio.max_dias_adelanto }, (_, i) => addDays(new Date(), i))
-  .filter(d => {
+    .filter(d => {
       const dia = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][d.getDay()]
       return negocio.horario[dia]?.abierto
     })
 
-    async function cargarSlots(diaSeleccionado: Date) {
-      setCargandoSlots(true)
-      setSlots([])
-      try {
-        const params = new URLSearchParams({
-          negocio_id: negocio.id,
-          fecha_iso:  diaSeleccionado.getFullYear() + '-' + 
-                      String(diaSeleccionado.getMonth() + 1).padStart(2,'0') + '-' + 
-                      String(diaSeleccionado.getDate()).padStart(2,'0'),
-          barbero_id: barberoId,
-        })
-        const res  = await fetch(`/api/reservas/slots?${params}`)
-        const data = await res.json()
-        setSlots(data.slots ?? [])
-      } catch {
-        toast.error('Error al cargar horarios disponibles')
-      }
-      setCargandoSlots(false)
+  async function cargarSlots(diaSeleccionado: Date) {
+    setCargandoSlots(true)
+    setSlots([])
+    try {
+      const params = new URLSearchParams({
+        negocio_id: negocio.id,
+        fecha_iso:  diaSeleccionado.getFullYear() + '-' +
+                    String(diaSeleccionado.getMonth() + 1).padStart(2,'0') + '-' +
+                    String(diaSeleccionado.getDate()).padStart(2,'0'),
+        barbero_id: barberoId,
+      })
+      const res  = await fetch(`/api/reservas/slots?${params}`)
+      const data = await res.json()
+      setSlots(data.slots ?? [])
+    } catch {
+      toast.error('Error al cargar horarios disponibles')
     }
+    setCargandoSlots(false)
+  }
+
+  async function onSubmitDatos(data: ClienteData) {
+    if (!fecha || !hora) return
 
     const [h, m] = hora.split(':').map(Number)
     const fechaHora = new Date(
-      fecha!.getFullYear(),
-      fecha!.getMonth(),
-      fecha!.getDate(),
+      fecha.getFullYear(),
+      fecha.getMonth(),
+      fecha.getDate(),
       h, m, 0, 0
     )
     // Ajustar a UTC-5 (Ecuador)
@@ -84,14 +85,14 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
     const fechaUTC = new Date(fechaHora.getTime() + offsetMs)
 
     const payload = {
-      negocio_id:   negocio.id,
-      barbero_id:   barberoId || null,
-      servicio_id:  servicioId || null,
-      nombre:       data.nombre,
-      telefono:     data.telefono,
-      email:        data.email || null,
-      fecha_hora: fechaUTC.toISOString(),
-      notas_cliente: data.notas || null,
+      negocio_id:        negocio.id,
+      barbero_id:        barberoId || null,
+      servicio_id:       servicioId || null,
+      nombre:            data.nombre,
+      telefono:          data.telefono,
+      email:             data.email || null,
+      fecha_hora:        fechaUTC.toISOString(),
+      notas_cliente:     data.notas || null,
       politica_aceptada: true,
     }
 
@@ -107,12 +108,9 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       return
     }
 
-    const result = await res.json()
-    setReservaId(result.id)
     setPaso('confirmado')
   }
 
-  // ── PASO: CONFIRMADO ──────────────────────────────────────────
   if (paso === 'confirmado') {
     return (
       <div className="card text-center py-8">
@@ -132,9 +130,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Fecha</span>
-            <span className="font-medium">
-              {fecha ? format(fecha, "PPP", { locale: es }) : '—'}
-            </span>
+            <span className="font-medium">{fecha ? format(fecha, "PPP", { locale: es }) : '—'}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Hora</span>
@@ -142,10 +138,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           </div>
         </div>
         <button
-          onClick={() => {
-            setPaso('servicio')
-            setServicioId(''); setBarberoId(''); setFecha(null); setHora('')
-          }}
+          onClick={() => { setPaso('servicio'); setServicioId(''); setBarberoId(''); setFecha(null); setHora('') }}
           className="btn-secondary text-sm"
         >
           Hacer otra reserva
@@ -154,13 +147,11 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
     )
   }
 
-  // ── INDICADOR DE PASOS ────────────────────────────────────────
   const PASOS: Paso[] = ['servicio','barbero','fecha','hora','datos']
   const pasoIdx = PASOS.indexOf(paso)
 
   return (
     <div>
-      {/* Progress */}
       <div className="flex items-center justify-between mb-6 px-1">
         {PASOS.map((p, i) => (
           <div key={p} className="flex items-center gap-1">
@@ -175,7 +166,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
         ))}
       </div>
 
-      {/* ── PASO 1: SERVICIO ──────────────────────────────────── */}
       {paso === 'servicio' && (
         <div>
           <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -183,12 +173,9 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           </h2>
           <div className="space-y-2">
             {servicios.map(s => (
-              <button
-                key={s.id}
-                onClick={() => { setServicioId(s.id); setPaso('barbero') }}
+              <button key={s.id} onClick={() => { setServicioId(s.id); setPaso('barbero') }}
                 className={`w-full text-left p-4 rounded-xl border transition-all
-                  ${servicioId === s.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-              >
+                  ${servicioId === s.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-gray-900">{s.nombre}</p>
@@ -207,7 +194,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
         </div>
       )}
 
-      {/* ── PASO 2: BARBERO ───────────────────────────────────── */}
       {paso === 'barbero' && (
         <div>
           <button onClick={() => setPaso('servicio')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4">
@@ -217,27 +203,18 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
             <User className="w-5 h-5 text-brand-600" /> Elige el barbero
           </h2>
           <div className="space-y-2">
-            {/* Opción "cualquiera" */}
-            <button
-              onClick={() => { setBarberoId(''); setPaso('fecha') }}
-              className="w-full text-left p-4 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-all"
-            >
+            <button onClick={() => { setBarberoId(''); setPaso('fecha') }}
+              className="w-full text-left p-4 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-all">
               <p className="font-medium text-gray-900">Sin preferencia</p>
               <p className="text-sm text-gray-500">Primer barbero disponible</p>
             </button>
             {barberos.map(b => (
-              <button
-                key={b.id}
-                onClick={() => { setBarberoId(b.id); setPaso('fecha') }}
+              <button key={b.id} onClick={() => { setBarberoId(b.id); setPaso('fecha') }}
                 className={`w-full text-left p-4 rounded-xl border transition-all
-                  ${barberoId === b.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-              >
+                  ${barberoId === b.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center font-bold text-brand-700 text-sm shrink-0">
-                    {b.foto_url
-                      ? <img src={b.foto_url} alt={b.nombre} className="w-10 h-10 rounded-full object-cover" />
-                      : b.nombre.charAt(0).toUpperCase()
-                    }
+                    {b.nombre.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{b.nombre}</p>
@@ -250,7 +227,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
         </div>
       )}
 
-      {/* ── PASO 3: FECHA ─────────────────────────────────────── */}
       {paso === 'fecha' && (
         <div>
           <button onClick={() => setPaso('barbero')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4">
@@ -263,17 +239,10 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
             {diasDisponibles.slice(0, 28).map(d => {
               const esSeleccionado = fecha ? isSameDay(d, fecha) : false
               return (
-                <button
-                  key={d.toISOString()}
-                  onClick={() => {
-                    setFecha(d)
-                    setHora('')
-                    cargarSlots(d)
-                    setPaso('hora')
-                  }}
+                <button key={d.toISOString()}
+                  onClick={() => { setFecha(d); setHora(''); cargarSlots(d); setPaso('hora') }}
                   className={`p-3 rounded-xl border text-center transition-all
-                    ${esSeleccionado ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                >
+                    ${esSeleccionado ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
                   <p className="text-xs text-gray-500 capitalize">{format(d, 'EEE', { locale: es })}</p>
                   <p className="text-lg font-bold text-gray-900">{format(d, 'd')}</p>
                   <p className="text-xs text-gray-400">{format(d, 'MMM', { locale: es })}</p>
@@ -284,7 +253,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
         </div>
       )}
 
-      {/* ── PASO 4: HORA ──────────────────────────────────────── */}
       {paso === 'hora' && (
         <div>
           <button onClick={() => setPaso('fecha')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4">
@@ -310,15 +278,12 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {slots.map(s => (
-                <button
-                  key={s.hora}
-                  disabled={!s.disponible}
+                <button key={s.hora} disabled={!s.disponible}
                   onClick={() => { setHora(s.hora); setPaso('datos') }}
                   className={`py-2.5 rounded-xl text-sm font-medium transition-all
                     ${!s.disponible ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                     : hora === s.hora ? 'bg-brand-600 text-white'
-                    : 'bg-white border border-gray-200 text-gray-700 hover:border-brand-400 hover:text-brand-600'}`}
-                >
+                    : 'bg-white border border-gray-200 text-gray-700 hover:border-brand-400 hover:text-brand-600'}`}>
                   {s.hora}
                 </button>
               ))}
@@ -327,14 +292,11 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
         </div>
       )}
 
-      {/* ── PASO 5: DATOS DEL CLIENTE ─────────────────────────── */}
       {paso === 'datos' && (
         <div>
           <button onClick={() => setPaso('hora')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4">
             <ChevronLeft className="w-4 h-4" /> Volver
           </button>
-
-          {/* Resumen */}
           <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 mb-5 text-sm">
             <p className="font-medium text-brand-800 mb-2">Resumen de tu reserva</p>
             <div className="space-y-1 text-brand-700">
@@ -344,7 +306,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
               <p>🕐 {hora}</p>
             </div>
           </div>
-
           <h2 className="font-bold text-gray-900 mb-4">Tus datos</h2>
           <form onSubmit={handleSubmit(onSubmitDatos)} className="space-y-4">
             <div>
@@ -366,8 +327,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
               <label className="label">Notas adicionales</label>
               <textarea {...register('notas')} className="input resize-none h-16" placeholder="Algo que el barbero deba saber..." />
             </div>
-
-            {/* Política de cancelación */}
             {negocio.cancelacion_mensaje && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                 <p className="text-xs font-medium text-amber-800 mb-1">Política de cancelación</p>
@@ -381,7 +340,6 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
               </span>
             </label>
             {errors.politica && <p className="text-red-500 text-xs -mt-2">{errors.politica.message}</p>}
-
             <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3 text-base">
               {isSubmitting ? 'Confirmando reserva...' : 'Confirmar reserva'}
             </button>
