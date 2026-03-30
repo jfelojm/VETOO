@@ -82,8 +82,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
     }
 
-    // Enviar emails
+    // Enviar emails directamente
     try {
+      const { Resend } = await import('resend')
+      const resend = new Resend(process.env.RESEND_API_KEY)
       const { data: cliente } = await supabase
         .from('clientes').select('nombre, telefono, email').eq('id', clienteId).single()
       const { data: barbero } = data.barbero_id
@@ -93,22 +95,48 @@ export async function POST(req: NextRequest) {
         ? await supabase.from('servicios').select('nombre').eq('id', data.servicio_id).single()
         : { data: null }
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberapp-ebon.vercel.app'
-      await fetch(`${appUrl}/api/notificaciones/reserva`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          negocio_email:    negocio.email,
-          negocio_nombre:   negocio.nombre,
-          cliente_nombre:   cliente?.nombre,
-          cliente_telefono: cliente?.telefono,
-          cliente_email:    cliente?.email,
-          barbero_nombre:   barbero?.nombre,
-          servicio_nombre:  servicio?.nombre,
-          fecha_hora:       data.fecha_hora,
-          reserva_id:       reserva.id,
-        }),
+      const fechaStr = new Date(data.fecha_hora).toLocaleString('es-EC', {
+        weekday: 'long', day: 'numeric', month: 'long',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        timeZone: 'America/Guayaquil'
       })
+
+      if (negocio.email) {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: negocio.email,
+          subject: `Nueva reserva — ${cliente?.nombre}`,
+          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+            <h2 style="color:#e05f10;">Nueva reserva recibida</h2>
+            <p>Tienes una nueva reserva en <strong>${negocio.nombre}</strong>.</p>
+            <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:4px 0;"><strong>Cliente:</strong> ${cliente?.nombre}</p>
+              <p style="margin:4px 0;"><strong>Teléfono:</strong> ${cliente?.telefono}</p>
+              ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
+              ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}
+              <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
+            </div>
+          </div>`,
+        })
+      }
+
+      if (cliente?.email) {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: cliente.email,
+          subject: `Reserva confirmada en ${negocio.nombre}`,
+          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+            <h2 style="color:#e05f10;">¡Reserva confirmada!</h2>
+            <p>Hola <strong>${cliente.nombre}</strong>, tu reserva en <strong>${negocio.nombre}</strong> fue confirmada.</p>
+            <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
+              ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
+              ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}
+              <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
+            </div>
+            <p style="color:#666;font-size:14px;">El pago se realiza en el local. ¡Te esperamos!</p>
+          </div>`,
+        })
+      }
     } catch (e) {
       console.log('Email no enviado:', e)
     }
