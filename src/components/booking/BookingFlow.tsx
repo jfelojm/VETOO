@@ -98,8 +98,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       fecha.getDate(),
       h, m, 0, 0
     )
-    const offsetMs = fechaHora.getTimezoneOffset() * 60000
-    const fechaUTC = new Date(fechaHora.getTime() - offsetMs)
+    const fechaUTC = fechaHora
 
     const payload = {
       negocio_id:        negocio.id,
