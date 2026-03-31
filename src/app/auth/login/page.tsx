@@ -38,11 +38,23 @@ export default function LoginPage() {
       }
       if (authData.session && authData.user) {
         toast.success('Bienvenido')
-        const meta = authData.user.user_metadata as Record<string, unknown> | undefined
+        const user = authData.user
+        const { data: negocioPropio } = await supabase
+          .from('negocios')
+          .select('id')
+          .eq('owner_id', user.id)
+          .maybeSingle()
+
+        const meta = user.user_metadata as Record<string, unknown> | undefined
         const esStaff =
           meta?.rol === 'barbero' || meta?.barbero_id != null
+
+        let dest = '/dashboard'
+        if (!negocioPropio && esStaff) dest = '/barbero/dashboard'
+        if (!negocioPropio && !esStaff) dest = '/auth/register'
+
         setTimeout(() => {
-          window.location.replace(esStaff ? '/barbero/dashboard' : '/dashboard')
+          window.location.replace(dest)
         }, 500)
       }
     } catch {

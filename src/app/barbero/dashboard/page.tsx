@@ -23,6 +23,7 @@ import {
   Lock,
   UserPlus,
   ChevronLeft,
+  Trash2,
 } from 'lucide-react'
 import type { SlotDisponible, Servicio } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
@@ -361,6 +362,27 @@ export default function BarberoDashboard() {
     void fetchSlotsDetalle(barbero.negocio.id, diaSeleccionado, barbero.id).then(setSlotsBloqueo)
   }
 
+  async function eliminarBloqueo(bloqueoId: string) {
+    if (
+      !confirm(
+        '¿Quitar este bloqueo? Esas horas volverán a estar disponibles para reservas.'
+      )
+    ) {
+      return
+    }
+    const { error } = await supabase.from('bloqueos').delete().eq('id', bloqueoId)
+    if (error) {
+      toast.error('No se pudo quitar el bloqueo')
+      return
+    }
+    toast.success('Bloqueo eliminado')
+    setBloqueosDia(prev => prev.filter(b => b.id !== bloqueoId))
+    if (barbero && panel === 'bloquear' && barbero.negocio) {
+      const slots = await fetchSlotsDetalle(barbero.negocio.id, diaSeleccionado, barbero.id)
+      setSlotsBloqueo(slots)
+    }
+  }
+
   async function cambiarEstado(reservaId: string, estado: string) {
     const { error } = await supabase.from('reservas').update({ estado }).eq('id', reservaId)
     if (error) {
@@ -438,12 +460,22 @@ export default function BarberoDashboard() {
               {bloqueosDia.map(b => (
                 <span
                   key={b.id}
-                  className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-2 py-1"
+                  className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-900 border border-amber-200 rounded-lg pl-2 pr-1 py-1"
                 >
                   <Lock className="w-3 h-3 shrink-0" />
-                  {format(new Date(b.fecha_desde), 'HH:mm')} –{' '}
-                  {format(new Date(b.fecha_hasta), 'HH:mm')}
-                  {b.motivo ? ` · ${b.motivo}` : ''}
+                  <span>
+                    {format(new Date(b.fecha_desde), 'HH:mm')} –{' '}
+                    {format(new Date(b.fecha_hasta), 'HH:mm')}
+                    {b.motivo ? ` · ${b.motivo}` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    title="Quitar bloqueo"
+                    onClick={() => void eliminarBloqueo(b.id)}
+                    className="p-1 rounded-md hover:bg-amber-200/80 text-amber-900/80 hover:text-red-700 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </span>
               ))}
             </div>
