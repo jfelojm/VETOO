@@ -10,18 +10,25 @@ export default function AuthConfirmPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+    async function verificar() {
+      // Esperar a que Supabase procese el hash
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session?.user) {
         const barberoId = session.user.user_metadata?.barbero_id
         if (barberoId) {
-          router.replace('/barbero/setup')
+          window.location.replace('/barbero/setup')
         } else {
-          router.replace('/dashboard')
+          window.location.replace('/dashboard')
         }
+      } else {
+        window.location.replace('/auth/login?error=link_invalido')
       }
-    })
+    }
 
-    return () => subscription.unsubscribe()
+    verificar()
   }, [])
 
   return (
