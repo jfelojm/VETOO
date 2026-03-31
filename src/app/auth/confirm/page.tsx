@@ -1,47 +1,84 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Scissors } from 'lucide-react'
 
 export default function AuthConfirmPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function verificar() {
-      const hash = window.location.hash
-      const params = new URLSearchParams(hash.substring(1))
+      const url = new URL(window.location.href)
+
+      // Flujo PKCE: código en query (sin fragmento con tokens)
+      const code = url.searchParams.get('code')
+      if (code) {
+        const next = url.searchParams.get('next') ?? '/barbero/setup'
+        const qs = new URLSearchParams(url.search)
+        if (!qs.has('next')) qs.set('next', next)
+        window.location.replace(`/api/auth/callback?${qs.toString()}`)
+        return
+      }
+
+      const hash = url.hash ? url.hash.slice(1) : ''
+      const params = new URLSearchParams(hash)
+      const errorCode = params.get('error')
+      const errorDesc = params.get('error_description')
+      if (errorCode || errorDesc) {
+        const msg = encodeURIComponent(errorDesc || errorCode || 'error')
+        window.location.replace(`/auth/login?error=${msg}`)
+        return
+      }
+
       const accessToken = params.get('access_token')
       const refreshToken = params.get('refresh_token')
       const type = params.get('type')
 
-      if (accessToken && refreshToken) {
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
-
-        if (!error && data.session) {
-          const { data: barberoData } = await supabase
-            .from('barberos')
-            .select('id')
-            .eq('user_id', data.session.user.id)
-            .single()
-
-          if (type === 'recovery' || barberoData) {
-            window.location.replace('/barbero/setup')
-          } else {
-            window.location.replace('/dashboard')
-          }
-          return
-        }
+      if (!accessToken || !refreshToken) {
+        window.location.replace('/auth/login?error=link_invalido')
+        return
       }
 
-      window.location.replace('/auth/login?error=link_invalido')
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+
+      if (error || !data.session) {
+        window.location.replace('/auth/login?error=sesion_invalida')
+        return
+      }
+
+      const meta = data.session.user.user_metadata as Record<string, unknown> | undefined
+      const barberoFromMeta = meta?.barbero_id != null
+      const isStaffInvite =
+        type === 'invite' ||
+        type === 'recovery' ||
+        type === 'signup' ||
+        meta?.rol === 'barbero' ||
+        barberoFromMeta
+
+      if (isStaffInvite) {
+        window.location.replace('/barbero/setup')
+        return
+      }
+
+      const { data: barberoData } = await supabase
+        .from('barberos')
+        .select('id')
+        .eq('user_id', data.session.user.id)
+        .maybeSingle()
+
+      if (barberoData) {
+        window.location.replace('/barbero/setup')
+      } else {
+        window.location.replace('/dashboard')
+      }
     }
 
-    verificar()
-  }, [])
+    void verificar()
+  }, [supabase])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

@@ -1,12 +1,13 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { Scissors } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function BarberoSetupPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -15,17 +16,57 @@ export default function BarberoSetupPage() {
   const [listo, setListo] = useState(false)
 
   useEffect(() => {
-    async function cargar() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/auth/login'); return }
-      const barberoId = user.user_metadata?.barbero_id
-      if (!barberoId) { router.replace('/dashboard'); return }
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let authSub: { unsubscribe: () => void } | null = null
+
+    async function cargarUsuario(user: User) {
+      const barberoId = user.user_metadata?.barbero_id as string | undefined
+      if (!barberoId) {
+        router.replace('/dashboard')
+        return
+      }
       const { data } = await supabase.from('barberos').select('nombre').eq('id', barberoId).single()
+      if (cancelled) return
       if (data) setNombre(data.nombre)
       setListo(true)
     }
-    cargar()
-  }, [])
+
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (session?.user) {
+        await cargarUsuario(session.user)
+        return
+      }
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (cancelled) return
+        if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+          if (timeoutId !== undefined) clearTimeout(timeoutId)
+          await cargarUsuario(session.user)
+          subscription.unsubscribe()
+        }
+      })
+      authSub = subscription
+
+      timeoutId = setTimeout(async () => {
+        if (cancelled) return
+        const { data: { session: s2 } } = await supabase.auth.getSession()
+        if (cancelled) return
+        if (!s2?.user) {
+          authSub?.unsubscribe()
+          router.replace('/auth/login?error=sesion')
+        }
+      }, 5000)
+    })()
+
+    return () => {
+      cancelled = true
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      authSub?.unsubscribe()
+    }
+  }, [router, supabase])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
