@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { emailInvitacionStaff } from '@/lib/emails'
  
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Profesional no encontrado' }, { status: 404 })
     }
  
+    // Obtener nombre del negocio
+    const { data: negocio } = await supabase
+      .from('negocios')
+      .select('nombre')
+      .eq('id', negocio_id)
+      .single()
+ 
+    const negocioNombre = negocio?.nombre ?? 'tu barbería'
+ 
     const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/barbero/setup`
  
     // Verificar si el usuario ya existe
@@ -33,7 +43,7 @@ export async function POST(req: NextRequest) {
     const usuarioExistente = usuariosExistentes?.users?.find(u => u.email === email)
  
     if (usuarioExistente) {
-      // Si ya existe, actualizamos sus metadatos y enviamos magic link
+      // Actualizar metadatos del usuario existente
       await supabase.auth.admin.updateUserById(usuarioExistente.id, {
         user_metadata: {
           barbero_id,
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
         }
       })
  
-      // Generar nuevo magic link
+      // Generar magic link
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email,
@@ -56,12 +66,20 @@ export async function POST(req: NextRequest) {
         }
       })
  
-      if (linkError) {
+      if (linkError || !linkData?.properties?.action_link) {
         console.error('Error generando link:', linkError)
         return NextResponse.json({ error: 'Error al enviar invitación' }, { status: 500 })
       }
  
-      // Actualizar barbero con el user_id existente
+      // Enviar email con el link
+      await emailInvitacionStaff({
+        email,
+        nombre: barbero.nombre,
+        negocioNombre,
+        linkInvitacion: linkData.properties.action_link,
+      })
+ 
+      // Actualizar barbero
       await supabase
         .from('barberos')
         .update({ email, user_id: usuarioExistente.id })

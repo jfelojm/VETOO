@@ -103,3 +103,36 @@ export async function emailCancelacion(reserva: Reserva, canceladaPor: 'cliente'
     })
   }
 }
+export async function emailInvitacionStaff({
+  email,
+  nombre,
+  negocioNombre,
+  linkInvitacion,
+}: {
+  email: string
+  nombre: string
+  negocioNombre: string
+  linkInvitacion: string
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Te invitaron a unirte a ${negocioNombre} en BarberApp`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a1a;">Hola ${nombre},</h2>
+        <p>Te han invitado a unirte al equipo de <strong>${negocioNombre}</strong> en BarberApp.</p>
+        <p>Haz clic en el botón para crear tu cuenta y acceder a tu panel:</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${linkInvitacion}"
+            style="background: #c2410c; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+            Aceptar invitación
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">
+          Este enlace expira en 24 horas. Si no esperabas esta invitación, puedes ignorar este email.
+        </p>
+      </div>
+    `,
+  })
+}
