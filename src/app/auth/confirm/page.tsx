@@ -1,34 +1,46 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Scissors } from 'lucide-react'
 
 export default function AuthConfirmPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        window.location.replace('/barbero/setup')
-        return
-      }
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
-        const { data: barberoData } = await supabase
-          .from('barberos')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .single()
-        if (barberoData) {
-          window.location.replace('/barbero/setup')
-        } else {
-          window.location.replace('/dashboard')
+    async function verificar() {
+      const hash = window.location.hash
+      const params = new URLSearchParams(hash.substring(1))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const type = params.get('type')
+
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+
+        if (!error && data.session) {
+          const { data: barberoData } = await supabase
+            .from('barberos')
+            .select('id')
+            .eq('user_id', data.session.user.id)
+            .single()
+
+          if (type === 'recovery' || barberoData) {
+            window.location.replace('/barbero/setup')
+          } else {
+            window.location.replace('/dashboard')
+          }
+          return
         }
       }
-    })
-    return () => subscription.unsubscribe()
+
+      window.location.replace('/auth/login?error=link_invalido')
+    }
+
+    verificar()
   }, [])
 
   return (
