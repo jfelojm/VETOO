@@ -14,9 +14,8 @@ export default function AuthConfirmPage() {
       // Flujo PKCE: código en query (sin fragmento con tokens)
       const code = url.searchParams.get('code')
       if (code) {
-        const next = url.searchParams.get('next') ?? '/barbero/setup'
         const qs = new URLSearchParams(url.search)
-        if (!qs.has('next')) qs.set('next', next)
+        if (!qs.has('next')) qs.set('next', '/dashboard')
         window.location.replace(`/api/auth/callback?${qs.toString()}`)
         return
       }
@@ -50,11 +49,15 @@ export default function AuthConfirmPage() {
         return
       }
 
+      if (type === 'recovery') {
+        window.location.replace('/auth/restablecer-contrasena')
+        return
+      }
+
       const meta = data.session.user.user_metadata as Record<string, unknown> | undefined
       const barberoFromMeta = meta?.barbero_id != null
       const isStaffInvite =
         type === 'invite' ||
-        type === 'recovery' ||
         type === 'signup' ||
         meta?.rol === 'barbero' ||
         barberoFromMeta

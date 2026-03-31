@@ -44,11 +44,20 @@ export async function GET(request: NextRequest) {
     }
   }
  
-  // Manejar code (OAuth flow)
+  // Manejar code (OAuth, magic link, recuperación de contraseña PKCE)
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
- 
+
     if (!error && data?.user) {
+      const nextParam = searchParams.get('next')
+      if (
+        nextParam &&
+        nextParam.startsWith('/') &&
+        !nextParam.startsWith('//') &&
+        !nextParam.includes(':')
+      ) {
+        return NextResponse.redirect(`${origin}${nextParam}`)
+      }
       const barberoId = data.user.user_metadata?.barbero_id
       if (barberoId) {
         return NextResponse.redirect(`${origin}/barbero/setup`)

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -15,8 +16,10 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-export default function LoginPage() {
+function LoginForm() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const errorUrl = searchParams.get('error')
   const [verPassword, setVerPassword] = useState(false)
   const [cargando, setCargando] = useState(false)
 
@@ -75,6 +78,11 @@ export default function LoginPage() {
         </div>
 
         <div className="card">
+          {errorUrl && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {decodeURIComponent(errorUrl)}
+            </div>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="label">Email</label>
@@ -98,6 +106,14 @@ export default function LoginPage() {
               {cargando ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
           </form>
+          <div className="text-center mt-4">
+            <Link
+              href="/auth/recuperar"
+              className="text-sm text-brand-600 font-medium hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
@@ -108,5 +124,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Cargando…</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
