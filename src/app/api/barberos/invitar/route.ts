@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
-
+ 
 export async function POST(req: NextRequest) {
   try {
     const { barbero_id, email, negocio_id } = await req.json()
-
+ 
     if (!barbero_id || !email || !negocio_id) {
       return NextResponse.json({ error: 'Parámetros requeridos' }, { status: 400 })
     }
-
+ 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-
+ 
     // Verificar que el barbero pertenece al negocio
     const { data: barbero } = await supabase
       .from('barberos')
@@ -24,34 +21,78 @@ export async function POST(req: NextRequest) {
       .eq('id', barbero_id)
       .eq('negocio_id', negocio_id)
       .single()
-
+ 
     if (!barbero) {
       return NextResponse.json({ error: 'Profesional no encontrado' }, { status: 404 })
     }
-
-    // Crear usuario en Supabase Auth con magic link
+ 
+    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/barbero/setup`
+ 
+    // Verificar si el usuario ya existe
+    const { data: usuariosExistentes } = await supabase.auth.admin.listUsers()
+    const usuarioExistente = usuariosExistentes?.users?.find(u => u.email === email)
+ 
+    if (usuarioExistente) {
+      // Si ya existe, actualizamos sus metadatos y enviamos magic link
+      await supabase.auth.admin.updateUserById(usuarioExistente.id, {
+        user_metadata: {
+          barbero_id,
+          negocio_id,
+          rol: 'barbero',
+        }
+      })
+ 
+      // Generar nuevo magic link
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email,
+        options: {
+          data: {
+            barbero_id,
+            negocio_id,
+            rol: 'barbero',
+          },
+          redirectTo,
+        }
+      })
+ 
+      if (linkError) {
+        console.error('Error generando link:', linkError)
+        return NextResponse.json({ error: 'Error al enviar invitación' }, { status: 500 })
+      }
+ 
+      // Actualizar barbero con el user_id existente
+      await supabase
+        .from('barberos')
+        .update({ email, user_id: usuarioExistente.id })
+        .eq('id', barbero_id)
+ 
+      return NextResponse.json({ ok: true })
+    }
+ 
+    // Usuario nuevo — invitar normalmente
     const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
       data: {
-        barbero_id: barbero_id,
-        negocio_id: negocio_id,
+        barbero_id,
+        negocio_id,
         rol: 'barbero',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/barbero/setup`,
+      redirectTo,
     })
-
+ 
     if (inviteError) {
       console.error('Error invitando:', inviteError)
       return NextResponse.json({ error: 'Error al enviar invitación' }, { status: 500 })
     }
-
-    // Guardar email en el barbero
+ 
+    // Guardar email y user_id en el barbero
     await supabase
       .from('barberos')
       .update({ email, user_id: inviteData.user.id })
       .eq('id', barbero_id)
-
+ 
     return NextResponse.json({ ok: true })
-
+ 
   } catch (err) {
     console.error('Error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
