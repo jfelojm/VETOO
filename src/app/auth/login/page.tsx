@@ -36,10 +36,13 @@ export default function LoginPage() {
         setCargando(false)
         return
       }
-      if (authData.session) {
+      if (authData.session && authData.user) {
         toast.success('Bienvenido')
+        const meta = authData.user.user_metadata as Record<string, unknown> | undefined
+        const esStaff =
+          meta?.rol === 'barbero' || meta?.barbero_id != null
         setTimeout(() => {
-          window.location.replace('/dashboard')
+          window.location.replace(esStaff ? '/barbero/dashboard' : '/dashboard')
         }, 500)
       }
     } catch {

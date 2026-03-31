@@ -31,8 +31,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .from('negocios')
         .select('id, nombre, slug, plan, trial_expira_at')
         .eq('owner_id', user.id)
-        .single()
-      if (!data) { router.replace('/auth/register'); return }
+        .maybeSingle()
+      if (!data) {
+        const meta = user.user_metadata as Record<string, unknown> | undefined
+        if (meta?.barbero_id != null || meta?.rol === 'barbero') {
+          router.replace('/barbero/dashboard')
+          return
+        }
+        router.replace('/auth/register')
+        return
+      }
       setNegocio(data)
       setCargando(false)
     }
