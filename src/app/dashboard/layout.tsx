@@ -8,7 +8,7 @@ import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap } from 'luc
 
 const NAV = [
   { href: '/dashboard',           icon: Calendar,  label: 'Agenda' },
-  { href: '/dashboard/barberos',  icon: Users,     label: 'Barberos' },
+  { href: '/dashboard/barberos', icon: Users, label: 'Staff' },
   { href: '/dashboard/servicios', icon: Scissors,  label: 'Servicios' },
   { href: '/dashboard/reservas',  icon: Calendar,  label: 'Reservas' },
   { href: '/dashboard/clientes',  icon: Users,     label: 'Clientes' },

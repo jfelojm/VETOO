@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Plus, Mail, Check, X } from 'lucide-react'
 
-interface Barbero {
+interface Staff {
   id: string
   nombre: string
   bio: string | null
@@ -15,9 +15,9 @@ interface Barbero {
   negocio_id: string
 }
 
-export default function BarberosPage() {
+export default function StaffPage() {
   const supabase = createClient()
-  const [barberos, setBarberos] = useState<Barbero[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
   const [negocioId, setNegocioId] = useState('')
   const [cargando, setCargando] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -39,13 +39,13 @@ export default function BarberosPage() {
         .select('*')
         .eq('negocio_id', neg.id)
         .order('created_at', { ascending: true })
-      setBarberos(data ?? [])
+      setStaff(data ?? [])
       setCargando(false)
     }
     cargar()
   }, [])
 
-  async function agregarBarbero() {
+  async function agregarMiembro() {
     if (!nombre.trim()) { toast.error('Ingresa el nombre'); return }
     setGuardando(true)
     const { data, error } = await supabase
@@ -53,33 +53,33 @@ export default function BarberosPage() {
       .insert({ negocio_id: negocioId, nombre: nombre.trim(), bio: bio.trim() || null, activo: true })
       .select('*').single()
     if (error) { toast.error('Error al agregar'); setGuardando(false); return }
-    setBarberos(prev => [...prev, data])
+    setStaff(prev => [...prev, data])
     setNombre(''); setBio(''); setMostrarForm(false)
-    toast.success('Profesional agregado')
+    toast.success('Miembro del staff agregado')
     setGuardando(false)
   }
 
-  async function toggleActivo(barbero: Barbero) {
+  async function toggleActivo(miembro: Staff) {
     const { error } = await supabase
-      .from('barberos').update({ activo: !barbero.activo }).eq('id', barbero.id)
+      .from('barberos').update({ activo: !miembro.activo }).eq('id', miembro.id)
     if (error) { toast.error('Error al actualizar'); return }
-    setBarberos(prev => prev.map(b => b.id === barbero.id ? { ...b, activo: !b.activo } : b))
+    setStaff(prev => prev.map(b => b.id === miembro.id ? { ...b, activo: !b.activo } : b))
   }
 
-  async function enviarInvitacion(barbero: Barbero) {
+  async function enviarInvitacion(miembro: Staff) {
     if (!emailInvite.trim()) { toast.error('Ingresa el email'); return }
     setGuardando(true)
     const res = await fetch('/api/barberos/invitar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ barbero_id: barbero.id, email: emailInvite.trim(), negocio_id: negocioId }),
+      body: JSON.stringify({ barbero_id: miembro.id, email: emailInvite.trim(), negocio_id: negocioId }),
     })
     if (!res.ok) {
       toast.error('Error al enviar invitación')
       setGuardando(false)
       return
     }
-    setBarberos(prev => prev.map(b => b.id === barbero.id ? { ...b, email: emailInvite.trim() } : b))
+    setStaff(prev => prev.map(b => b.id === miembro.id ? { ...b, email: emailInvite.trim() } : b))
     setInvitandoId(null)
     setEmailInvite('')
     toast.success('Invitación enviada por email')
@@ -92,8 +92,8 @@ export default function BarberosPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Profesionales</h1>
-          <p className="text-gray-500 text-sm mt-1">{barberos.length} profesionales registrados</p>
+          <h1 className="text-2xl font-bold text-gray-900">Staff</h1>
+          <p className="text-gray-500 text-sm mt-1">{staff.length} miembros del equipo</p>
         </div>
         <button onClick={() => setMostrarForm(!mostrarForm)} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" /> Agregar
@@ -102,7 +102,7 @@ export default function BarberosPage() {
 
       {mostrarForm && (
         <div className="card mb-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Nuevo profesional</h2>
+          <h2 className="font-semibold text-gray-900 mb-4">Nuevo miembro del staff</h2>
           <div className="space-y-4">
             <div>
               <label className="label">Nombre *</label>
@@ -115,8 +115,8 @@ export default function BarberosPage() {
                 className="input" placeholder="Especialidad, años de experiencia..." />
             </div>
             <div className="flex gap-3">
-              <button onClick={agregarBarbero} disabled={guardando} className="btn-primary">
-                {guardando ? 'Guardando...' : 'Agregar profesional'}
+              <button onClick={agregarMiembro} disabled={guardando} className="btn-primary">
+                {guardando ? 'Guardando...' : 'Agregar al staff'}
               </button>
               <button onClick={() => setMostrarForm(false)} className="btn-secondary">Cancelar</button>
             </div>
@@ -124,33 +124,35 @@ export default function BarberosPage() {
         </div>
       )}
 
-      {barberos.length === 0 ? (
+      {staff.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-gray-400 text-sm">No tienes profesionales registrados</p>
+          <p className="text-gray-400 text-sm">No tienes miembros en el staff</p>
           <p className="text-gray-400 text-xs mt-1">Agrega a tu equipo para que los clientes puedan elegir</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {barberos.map(b => (
-            <div key={b.id} className={`card ${!b.activo ? 'opacity-60' : ''}`}>
+          {staff.map(miembro => (
+            <div key={miembro.id} className={`card ${!miembro.activo ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center font-bold text-brand-700 text-sm shrink-0">
-                  {b.nombre.charAt(0).toUpperCase()}
+                  {miembro.nombre.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{b.nombre}</p>
-                    {!b.activo && <span className="badge badge-gray">Inactivo</span>}
-                    {b.user_id && <span className="badge badge-green text-xs">Acceso activo</span>}
+                    <p className="font-medium text-gray-900">{miembro.nombre}</p>
+                    {!miembro.activo && <span className="badge badge-gray">Inactivo</span>}
+                    {miembro.user_id && <span className="badge badge-green text-xs">Acceso activo</span>}
                   </div>
-                  {b.bio && <p className="text-sm text-gray-500 mt-0.5">{b.bio}</p>}
-                  {b.email && (
+                  {miembro.bio && <p className="text-sm text-gray-500 mt-0.5">{miembro.bio}</p>}
+                  {miembro.email && (
                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                      <Mail className="w-3 h-3" /> {b.email}
-                      {b.user_id ? <span className="text-green-600 ml-1">✓ Cuenta creada</span> : <span className="text-amber-600 ml-1">Pendiente activación</span>}
+                      <Mail className="w-3 h-3" /> {miembro.email}
+                      {miembro.user_id
+                        ? <span className="text-green-600 ml-1">✓ Cuenta creada</span>
+                        : <span className="text-amber-600 ml-1">Pendiente activación</span>}
                     </p>
                   )}
-                  {invitandoId === b.id && (
+                  {invitandoId === miembro.id && (
                     <div className="mt-3 flex gap-2">
                       <input
                         value={emailInvite}
@@ -159,7 +161,7 @@ export default function BarberosPage() {
                         placeholder="email@ejemplo.com"
                         type="email"
                       />
-                      <button onClick={() => enviarInvitacion(b)} disabled={guardando}
+                      <button onClick={() => enviarInvitacion(miembro)} disabled={guardando}
                         className="px-3 py-1.5 bg-brand-600 text-white text-xs rounded-lg hover:bg-brand-700">
                         <Check className="w-4 h-4" />
                       </button>
@@ -171,19 +173,19 @@ export default function BarberosPage() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
-                  {!b.user_id && invitandoId !== b.id && (
-                    <button onClick={() => { setInvitandoId(b.id); setEmailInvite(b.email ?? '') }}
+                  {!miembro.user_id && invitandoId !== miembro.id && (
+                    <button onClick={() => { setInvitandoId(miembro.id); setEmailInvite(miembro.email ?? '') }}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100">
                       <Mail className="w-3 h-3" /> Invitar
                     </button>
                   )}
-                  <button onClick={() => toggleActivo(b)}
+                  <button onClick={() => toggleActivo(miembro)}
                     className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                      b.activo
+                      miembro.activo
                         ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                         : 'bg-green-50 text-green-700 hover:bg-green-100'
                     }`}>
-                    {b.activo ? 'Desactivar' : 'Activar'}
+                    {miembro.activo ? 'Desactivar' : 'Activar'}
                   </button>
                 </div>
               </div>
@@ -194,5 +196,3 @@ export default function BarberosPage() {
     </div>
   )
 }
- 
- 
