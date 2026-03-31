@@ -32,6 +32,7 @@ export default function RecuperarPasswordPage() {
     setCargando(true)
     try {
       const origin = getAppOrigin()
+      // Debe abrirse en el mismo navegador donde pediste el correo (PKCE). La página /auth/confirm hace exchangeCodeForSession en el cliente.
       const next = encodeURIComponent('/auth/restablecer-contrasena')
       const redirectTo = `${origin}/auth/confirm?next=${next}`
 
@@ -84,6 +85,10 @@ export default function RecuperarPasswordPage() {
               <p className="text-sm text-gray-600">
                 Indica el email de tu cuenta (dueño o staff). Te enviaremos un enlace para elegir una
                 nueva contraseña.
+              </p>
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Importante: abre el enlace del correo en <strong>este mismo navegador</strong> (mismo
+                equipo). Si lo abres en el móvil u otro navegador, el enlace puede fallar.
               </p>
               <div>
                 <label className="label">Email</label>

@@ -10,18 +10,62 @@ export default function AuthConfirmPage() {
   useEffect(() => {
     async function verificar() {
       const url = new URL(window.location.href)
+      const hashRaw = url.hash?.startsWith('#') ? url.hash.slice(1) : ''
+      const hashParams = new URLSearchParams(hashRaw)
 
-      // Flujo PKCE: código en query (sin fragmento con tokens)
-      const code = url.searchParams.get('code')
+      // PKCE: Supabase a veces pone ?code= y a veces #code= en el fragmento
+      const code =
+        url.searchParams.get('code') ||
+        hashParams.get('code')
       if (code) {
-        const qs = new URLSearchParams(url.search)
-        if (!qs.has('next')) qs.set('next', '/dashboard')
-        window.location.replace(`/api/auth/callback?${qs.toString()}`)
+        // PKCE: el code_verifier está en este navegador; el servidor no puede intercambiar el código.
+        const { error: errExchange } = await supabase.auth.exchangeCodeForSession(code)
+        if (errExchange) {
+          window.location.replace(
+            `/auth/login?error=${encodeURIComponent(
+              errExchange.message ||
+                'Enlace inválido o caducado. Pide uno nuevo desde “Olvidé mi contraseña” (mismo navegador).'
+            )}`
+          )
+          return
+        }
+        const nextRaw =
+          url.searchParams.get('next') ||
+          hashParams.get('next') ||
+          '/dashboard'
+        const next =
+          nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.includes(':')
+            ? nextRaw
+            : '/dashboard'
+        window.location.replace(next)
         return
       }
 
-      const hash = url.hash ? url.hash.slice(1) : ''
-      const params = new URLSearchParams(hash)
+      // Token en query o en hash (plantillas de correo)
+      const tokenOtp =
+        url.searchParams.get('token_hash') ||
+        url.searchParams.get('token') ||
+        hashParams.get('token_hash') ||
+        hashParams.get('token')
+      const typeOtp =
+        url.searchParams.get('type') ||
+        hashParams.get('type')
+      if (tokenOtp && typeOtp === 'recovery') {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenOtp,
+          type: 'recovery',
+        })
+        if (error || !data.session) {
+          window.location.replace(
+            `/auth/login?error=${encodeURIComponent(error?.message || 'enlace_expirado')}`
+          )
+          return
+        }
+        window.location.replace('/auth/restablecer-contrasena')
+        return
+      }
+
+      const params = hashParams
       const errorCode = params.get('error')
       const errorDesc = params.get('error_description')
       if (errorCode || errorDesc) {
@@ -35,7 +79,11 @@ export default function AuthConfirmPage() {
       const type = params.get('type')
 
       if (!accessToken || !refreshToken) {
-        window.location.replace('/auth/login?error=link_invalido')
+        window.location.replace(
+          `/auth/login?error=${encodeURIComponent(
+            'Enlace inválido o incompleto. Si pediste recuperar la contraseña, abre el enlace en el mismo navegador donde lo solicitaste (PKCE). Si usas otro dispositivo, pide un correo nuevo allí.'
+          )}`
+        )
         return
       }
 

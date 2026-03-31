@@ -28,13 +28,24 @@ export async function GET(request: NextRequest) {
     }
   )
  
-  // Manejar token de invitación (type=invite) o magic link
+  // Recuperación con token en URL (sin PKCE)
+  if (token && type === 'recovery') {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: token,
+      type: 'recovery',
+    })
+    if (!error && data?.session) {
+      return NextResponse.redirect(`${origin}/auth/restablecer-contrasena`)
+    }
+  }
+
+  // Invitación o magic link
   if (token && (type === 'invite' || type === 'magiclink')) {
     const { data, error } = await supabase.auth.verifyOtp({
       token_hash: token,
       type: type === 'invite' ? 'invite' : 'magiclink',
     })
- 
+
     if (!error && data?.user) {
       const barberoId = data.user.user_metadata?.barbero_id
       if (barberoId) {
@@ -48,7 +59,13 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && data?.user) {
+    if (error) {
+      return NextResponse.redirect(
+        `${origin}/auth/login?error=${encodeURIComponent(error.message)}`
+      )
+    }
+
+    if (data?.user) {
       const nextParam = searchParams.get('next')
       if (
         nextParam &&
