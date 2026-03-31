@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap } from 'lucide-react'
+import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap, Lock } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',           icon: Calendar,  label: 'Agenda' },
   { href: '/dashboard/barberos', icon: Users, label: 'Staff' },
+  { href: '/dashboard/bloqueos',  icon: Lock,      label: 'Bloqueos' },
   { href: '/dashboard/servicios', icon: Scissors,  label: 'Servicios' },
   { href: '/dashboard/reservas',  icon: Calendar,  label: 'Reservas' },
   { href: '/dashboard/clientes',  icon: Users,     label: 'Clientes' },

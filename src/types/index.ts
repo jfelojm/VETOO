@@ -141,4 +141,6 @@ export interface FormReserva {
 export interface SlotDisponible {
   hora:        string  // "09:00"
   disponible:  boolean
+  /** Si la API se pide con ?detalle=1: por qué no está libre */
+  motivo?:      'bloqueo' | 'ocupado'
 }

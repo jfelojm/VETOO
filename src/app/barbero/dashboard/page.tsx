@@ -1,12 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns'
+import {
+  format,
+  addDays,
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  addMinutes,
+} from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Scissors, LogOut, Clock, Phone, X, CheckCircle, Plus } from 'lucide-react'
+import {
+  Scissors,
+  LogOut,
+  Phone,
+  X,
+  CheckCircle,
+  Calendar,
+  Lock,
+  UserPlus,
+  ChevronLeft,
+} from 'lucide-react'
+import type { SlotDisponible, Servicio } from '@/types'
+import CalendarioMes from '@/components/calendario/CalendarioMes'
+import GrillaHorarios from '@/components/calendario/GrillaHorarios'
+import { formatPrecio } from '@/lib/utils'
 
 interface Reserva {
   id: string
@@ -18,211 +39,697 @@ interface Reserva {
   cliente: { nombre: string; telefono: string } | null
 }
 
+type NegocioHorario = {
+  id: string
+  nombre: string
+  horario: Record<string, { abierto?: boolean }>
+  duracion_turno_min: number
+  max_dias_adelanto: number
+  cancelacion_mensaje: string | null
+}
+
+type Panel = null | 'bloquear' | 'nueva-reserva'
+
+const DIAS_KEY = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as const
+
 export default function BarberoDashboard() {
   const supabase = createClient()
   const router = useRouter()
-  const [barbero, setBarbero] = useState<any>(null)
-  const [fecha, setFecha] = useState(new Date())
+  const [barbero, setBarbero] = useState<{
+    id: string
+    nombre: string
+    negocio_id: string
+    negocio: NegocioHorario | null
+  } | null>(null)
+  const [mesVisible, setMesVisible] = useState(() => startOfMonth(new Date()))
+  const [diaSeleccionado, setDiaSeleccionado] = useState(() => startOfDay(new Date()))
   const [reservas, setReservas] = useState<Reserva[]>([])
+  const [bloqueosDia, setBloqueosDia] = useState<
+    { id: string; fecha_desde: string; fecha_hasta: string; motivo: string | null }[]
+  >([])
   const [cargando, setCargando] = useState(true)
-  const [mostrarBloqueo, setMostrarBloqueo] = useState(false)
-  const [bloqueoDesde, setBloqueoDesde] = useState('')
-  const [bloqueoHasta, setBloqueoHasta] = useState('')
+
+  const [panel, setPanel] = useState<Panel>(null)
+  const [slotsBloqueo, setSlotsBloqueo] = useState<SlotDisponible[]>([])
+  const [cargandoSlotsBloqueo, setCargandoSlotsBloqueo] = useState(false)
+  const [bloqueoHoraInicio, setBloqueoHoraInicio] = useState<string | null>(null)
+  const [bloqueoHoraFin, setBloqueoHoraFin] = useState<string | null>(null)
   const [bloqueoMotivo, setBloqueoMotivo] = useState('')
+
+  const [servicios, setServicios] = useState<Servicio[]>([])
+  const [nuevaPaso, setNuevaPaso] = useState<'servicio' | 'hora' | 'datos'>('servicio')
+  const [servicioId, setServicioId] = useState<string>('')
+  const [slotsReserva, setSlotsReserva] = useState<SlotDisponible[]>([])
+  const [cargandoSlotsReserva, setCargandoSlotsReserva] = useState(false)
+  const [horaReserva, setHoraReserva] = useState<string | null>(null)
+  const [nrNombre, setNrNombre] = useState('')
+  const [nrTelefono, setNrTelefono] = useState('')
+  const [nrEmail, setNrEmail] = useState('')
+  const [nrNotas, setNrNotas] = useState('')
+  const [nrPolitica, setNrPolitica] = useState(false)
+  const [nrCargando, setNrCargando] = useState(false)
+
+  const diaEsLaborable = useCallback(
+    (d: Date) => {
+      const h = barbero?.negocio?.horario
+      if (!h) return false
+      const key = DIAS_KEY[d.getDay()]
+      return !!(h as any)[key]?.abierto
+    },
+    [barbero?.negocio?.horario]
+  )
+
+  const fechaMax = barbero?.negocio
+    ? addDays(startOfDay(new Date()), barbero.negocio.max_dias_adelanto)
+    : undefined
 
   useEffect(() => {
     async function cargar() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/auth/login'); return }
+      if (!user) {
+        router.replace('/auth/login')
+        return
+      }
 
-      const barberoId = user.user_metadata?.barbero_id
-      if (!barberoId) { router.replace('/auth/login'); return }
+      const barberoId = user.user_metadata?.barbero_id as string | undefined
+      if (!barberoId) {
+        router.replace('/auth/login')
+        return
+      }
 
       const { data: b } = await supabase
         .from('barberos')
-        .select('id, nombre, negocio_id, negocio:negocios(nombre)')
+        .select(
+          `id, nombre, negocio_id,
+          negocio:negocios(id, nombre, horario, duracion_turno_min, max_dias_adelanto, cancelacion_mensaje)`
+        )
         .eq('id', barberoId)
         .single()
 
-      if (!b) { router.replace('/auth/login'); return }
-      setBarbero(b)
-      await cargarReservas(barberoId, fecha)
+      if (!b) {
+        router.replace('/auth/login')
+        return
+      }
+
+      const rawNeg = b.negocio
+      const n = (Array.isArray(rawNeg) ? rawNeg[0] : rawNeg) as NegocioHorario | null | undefined
+      setBarbero({
+        id: b.id,
+        nombre: b.nombre,
+        negocio_id: b.negocio_id,
+        negocio: n ?? null,
+      })
+
+      const { data: servs } = await supabase
+        .from('servicios')
+        .select('*')
+        .eq('negocio_id', b.negocio_id)
+        .eq('activo', true)
+        .order('orden')
+
+      setServicios((servs as Servicio[]) ?? [])
       setCargando(false)
     }
-    cargar()
-  }, [])
+    void cargar()
+  }, [router, supabase])
 
-  async function cargarReservas(barberoId: string, dia: Date) {
-    const { data } = await supabase
-      .from('reservas')
-      .select('*, servicio:servicios(nombre), cliente:clientes(nombre, telefono)')
-      .eq('barbero_id', barberoId)
-      .gte('fecha_hora', startOfDay(dia).toISOString())
-      .lte('fecha_hora', endOfDay(dia).toISOString())
-      .neq('estado', 'cancelada')
-      .order('fecha_hora', { ascending: true })
-    setReservas(data ?? [])
+  const cargarReservas = useCallback(
+    async (barberoId: string, dia: Date) => {
+      const { data } = await supabase
+        .from('reservas')
+        .select('*, servicio:servicios(nombre), cliente:clientes(nombre, telefono)')
+        .eq('barbero_id', barberoId)
+        .gte('fecha_hora', startOfDay(dia).toISOString())
+        .lte('fecha_hora', endOfDay(dia).toISOString())
+        .neq('estado', 'cancelada')
+        .order('fecha_hora', { ascending: true })
+      setReservas((data as Reserva[]) ?? [])
+    },
+    [supabase]
+  )
+
+  const cargarBloqueosDia = useCallback(
+    async (barberoId: string, negocioId: string, dia: Date) => {
+      const { data } = await supabase
+        .from('bloqueos')
+        .select('id, fecha_desde, fecha_hasta, motivo')
+        .eq('barbero_id', barberoId)
+        .eq('negocio_id', negocioId)
+        .gte('fecha_hasta', startOfDay(dia).toISOString())
+        .lte('fecha_desde', endOfDay(dia).toISOString())
+      setBloqueosDia(data ?? [])
+    },
+    [supabase]
+  )
+
+  useEffect(() => {
+    if (!barbero) return
+    void cargarReservas(barbero.id, diaSeleccionado)
+    void cargarBloqueosDia(barbero.id, barbero.negocio_id, diaSeleccionado)
+  }, [barbero, diaSeleccionado, cargarReservas, cargarBloqueosDia])
+
+  async function fetchSlotsDetalle(negocioId: string, dia: Date, barberoId: string) {
+    const anio = dia.getFullYear()
+    const mes = String(dia.getMonth() + 1).padStart(2, '0')
+    const d = String(dia.getDate()).padStart(2, '0')
+    const fechaIso = `${anio}-${mes}-${d}`
+    const params = new URLSearchParams({
+      negocio_id: negocioId,
+      fecha_iso: fechaIso,
+      barbero_id: barberoId,
+      detalle: '1',
+    })
+    const res = await fetch(`/api/reservas/slots?${params}`)
+    const json = await res.json()
+    return (json.slots ?? []) as SlotDisponible[]
+  }
+
+  useEffect(() => {
+    if (panel !== 'bloquear' || !barbero?.negocio) return
+    let cancel = false
+    setCargandoSlotsBloqueo(true)
+    setBloqueoHoraInicio(null)
+    setBloqueoHoraFin(null)
+    void (async () => {
+      const slots = await fetchSlotsDetalle(barbero.negocio!.id, diaSeleccionado, barbero.id)
+      if (!cancel) {
+        setSlotsBloqueo(slots)
+        setCargandoSlotsBloqueo(false)
+      }
+    })()
+    return () => {
+      cancel = true
+    }
+  }, [panel, barbero, diaSeleccionado])
+
+  useEffect(() => {
+    if (panel !== 'nueva-reserva' || nuevaPaso !== 'hora' || !barbero?.negocio || !servicioId) return
+    let cancel = false
+    setCargandoSlotsReserva(true)
+    setHoraReserva(null)
+    void (async () => {
+      const slots = await fetchSlotsDetalle(barbero.negocio!.id, diaSeleccionado, barbero.id)
+      if (!cancel) {
+        const ahora = new Date()
+        const esHoy = diaSeleccionado.toDateString() === ahora.toDateString()
+        if (esHoy) {
+          const ajustados = slots.map(s => {
+            const [h, m] = s.hora.split(':').map(Number)
+            const slotTime = new Date(diaSeleccionado)
+            slotTime.setHours(h, m, 0, 0)
+            return {
+              ...s,
+              disponible: s.disponible && slotTime > ahora,
+            }
+          })
+          setSlotsReserva(ajustados)
+        } else {
+          setSlotsReserva(slots)
+        }
+        setCargandoSlotsReserva(false)
+      }
+    })()
+    return () => {
+      cancel = true
+    }
+  }, [panel, nuevaPaso, barbero, diaSeleccionado, servicioId])
+
+  async function crearBloqueo() {
+    if (!barbero?.negocio || !bloqueoHoraInicio || !bloqueoHoraFin) {
+      toast.error('Elige hora de inicio y fin del bloqueo')
+      return
+    }
+    const dur = barbero.negocio.duracion_turno_min
+    const i0 = slotsBloqueo.findIndex(s => s.hora === bloqueoHoraInicio)
+    const i1 = slotsBloqueo.findIndex(s => s.hora === bloqueoHoraFin)
+    if (i0 < 0 || i1 < 0) return
+    const desdeIdx = Math.min(i0, i1)
+    const hastaIdx = Math.max(i0, i1)
+    const horaIni = slotsBloqueo[desdeIdx].hora
+    const horaFinSlot = slotsBloqueo[hastaIdx].hora
+    const [h0, m0] = horaIni.split(':').map(Number)
+    const [h1, m1] = horaFinSlot.split(':').map(Number)
+    const fecha_desde = new Date(diaSeleccionado)
+    fecha_desde.setHours(h0, m0, 0, 0)
+    const inicioFinSlot = new Date(diaSeleccionado)
+    inicioFinSlot.setHours(h1, m1, 0, 0)
+    const fecha_hasta = addMinutes(inicioFinSlot, dur)
+
+    const { error } = await supabase.from('bloqueos').insert({
+      negocio_id: barbero.negocio_id,
+      barbero_id: barbero.id,
+      fecha_desde: fecha_desde.toISOString(),
+      fecha_hasta: fecha_hasta.toISOString(),
+      motivo: bloqueoMotivo.trim() || 'No disponible',
+    })
+    if (error) {
+      toast.error('Error al crear bloqueo')
+      return
+    }
+    toast.success('Horario bloqueado')
+    setPanel(null)
+    setBloqueoMotivo('')
+    void cargarBloqueosDia(barbero.id, barbero.negocio_id, diaSeleccionado)
+    const slots = await fetchSlotsDetalle(barbero.negocio.id, diaSeleccionado, barbero.id)
+    setSlotsBloqueo(slots)
+    setBloqueoHoraInicio(null)
+    setBloqueoHoraFin(null)
+  }
+
+  function onElegirHoraBloqueo(hora: string) {
+    const i = slotsBloqueo.findIndex(x => x.hora === hora)
+    if (bloqueoHoraInicio == null) {
+      setBloqueoHoraInicio(hora)
+      setBloqueoHoraFin(null)
+      return
+    }
+    const i0 = slotsBloqueo.findIndex(x => x.hora === bloqueoHoraInicio)
+    if (i < i0) {
+      setBloqueoHoraInicio(hora)
+      setBloqueoHoraFin(null)
+      return
+    }
+    setBloqueoHoraFin(hora)
+  }
+
+  async function crearReservaManual() {
+    if (!barbero?.negocio || !horaReserva || !servicioId) return
+    if (!nrNombre.trim() || nrTelefono.trim().length < 7) {
+      toast.error('Nombre y teléfono válidos requeridos')
+      return
+    }
+    if (!nrPolitica) {
+      toast.error('Debes aceptar la política de reservas')
+      return
+    }
+    const [h, m] = horaReserva.split(':').map(Number)
+    const fechaHora = new Date(diaSeleccionado)
+    fechaHora.setHours(h, m, 0, 0)
+    setNrCargando(true)
+    const res = await fetch('/api/reservas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        negocio_id: barbero.negocio_id,
+        barbero_id: barbero.id,
+        servicio_id: servicioId,
+        nombre: nrNombre.trim(),
+        telefono: nrTelefono.trim(),
+        email: nrEmail.trim() || null,
+        fecha_hora: fechaHora.toISOString(),
+        notas_cliente: nrNotas.trim() || null,
+        politica_aceptada: true,
+      }),
+    })
+    setNrCargando(false)
+    if (!res.ok) {
+      const err = await res.json()
+      toast.error(err.error ?? 'Error al crear reserva')
+      return
+    }
+    toast.success('Reserva creada')
+    setPanel(null)
+    setNuevaPaso('servicio')
+    setServicioId('')
+    setHoraReserva(null)
+    setNrNombre('')
+    setNrTelefono('')
+    setNrEmail('')
+    setNrNotas('')
+    setNrPolitica(false)
+    void cargarReservas(barbero.id, diaSeleccionado)
+    void fetchSlotsDetalle(barbero.negocio.id, diaSeleccionado, barbero.id).then(setSlotsBloqueo)
   }
 
   async function cambiarEstado(reservaId: string, estado: string) {
     const { error } = await supabase.from('reservas').update({ estado }).eq('id', reservaId)
-    if (error) { toast.error('Error al actualizar'); return }
-    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado } : r))
+    if (error) {
+      toast.error('Error al actualizar')
+      return
+    }
+    setReservas(prev => prev.map(r => (r.id === reservaId ? { ...r, estado } : r)))
     toast.success('Estado actualizado')
   }
 
-  async function crearBloqueo() {
-    if (!bloqueoDesde || !bloqueoHasta) { toast.error('Ingresa fecha y hora'); return }
-    const { error } = await supabase.from('bloqueos').insert({
-      negocio_id: barbero.negocio_id,
-      barbero_id: barbero.id,
-      fecha_desde: new Date(bloqueoDesde).toISOString(),
-      fecha_hasta: new Date(bloqueoHasta).toISOString(),
-      motivo: bloqueoMotivo || 'No disponible',
-    })
-    if (error) { toast.error('Error al crear bloqueo'); return }
-    toast.success('Horario bloqueado')
-    setMostrarBloqueo(false)
-    setBloqueoDesde(''); setBloqueoHasta(''); setBloqueoMotivo('')
+  if (cargando || !barbero?.negocio) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Scissors className="w-8 h-8 text-brand-600 animate-pulse" />
+      </div>
+    )
   }
 
-  function cambiarDia(dias: number) {
-    const nueva = dias > 0 ? addDays(fecha, dias) : subDays(fecha, Math.abs(dias))
-    setFecha(nueva)
-    if (barbero) cargarReservas(barbero.id, nueva)
-  }
-
-  if (cargando) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Scissors className="w-8 h-8 text-brand-600 animate-pulse" />
-    </div>
-  )
-
-  const fechaLabel = format(fecha, "EEEE d 'de' MMMM", { locale: es })
+  const neg = barbero.negocio
+  const subtituloDia = format(diaSeleccionado, "EEEE d 'de' MMMM yyyy", { locale: es })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <Scissors className="w-5 h-5 text-brand-600" />
             <span className="font-bold text-sm">BarberApp</span>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">{(barbero?.negocio as any)?.nombre}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{neg.nombre}</p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-sm font-medium text-gray-700">{barbero?.nombre}</p>
-          <button onClick={async () => { await supabase.auth.signOut(); router.replace('/auth/login') }}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-50">
+          <p className="text-sm font-medium text-gray-700">{barbero.nombre}</p>
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut()
+              router.replace('/auth/login')
+            }}
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-50"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6">
-        {/* Navegación de días */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => cambiarDia(-1)} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div className="text-center">
-            <p className="font-semibold text-gray-900 capitalize">{fechaLabel}</p>
-            <p className="text-xs text-gray-400">{reservas.length} reservas</p>
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        <CalendarioMes
+          mesVisible={mesVisible}
+          onCambiarMes={setMesVisible}
+          diaSeleccionado={diaSeleccionado}
+          onSeleccionarDia={d => {
+            setDiaSeleccionado(startOfDay(d))
+            setPanel(null)
+          }}
+          diaEsLaborable={diaEsLaborable}
+          fechaMax={fechaMax}
+        />
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-2 mb-1">
+            <Calendar className="w-4 h-4 text-brand-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900 capitalize">{subtituloDia}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {reservas.length} reserva{reservas.length !== 1 ? 's' : ''}
+                {bloqueosDia.length > 0 &&
+                  ` · ${bloqueosDia.length} bloqueo${bloqueosDia.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
           </div>
-          <button onClick={() => cambiarDia(1)} className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50">
-            <ChevronRight className="w-4 h-4" />
-          </button>
+
+          {bloqueosDia.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {bloqueosDia.map(b => (
+                <span
+                  key={b.id}
+                  className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-2 py-1"
+                >
+                  <Lock className="w-3 h-3 shrink-0" />
+                  {format(new Date(b.fecha_desde), 'HH:mm')} –{' '}
+                  {format(new Date(b.fecha_hasta), 'HH:mm')}
+                  {b.motivo ? ` · ${b.motivo}` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(panel === 'bloquear' ? null : 'bloquear')
+                setNuevaPaso('servicio')
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                panel === 'bloquear'
+                  ? 'border-brand-500 bg-brand-50 text-brand-800'
+                  : 'border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              Bloquear horario
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(panel === 'nueva-reserva' ? null : 'nueva-reserva')
+                setNuevaPaso('servicio')
+                setServicioId('')
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                panel === 'nueva-reserva'
+                  ? 'border-brand-500 bg-brand-50 text-brand-800'
+                  : 'border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              Nueva reserva
+            </button>
+          </div>
         </div>
 
-        {/* Botón bloquear horario */}
-        <button onClick={() => setMostrarBloqueo(!mostrarBloqueo)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-xl border border-dashed border-gray-300 text-sm text-gray-500 hover:border-brand-400 hover:text-brand-600 transition-colors">
-          <Plus className="w-4 h-4" />
-          Bloquear horario
-        </button>
-
-        {/* Formulario de bloqueo */}
-        {mostrarBloqueo && (
-          <div className="card mb-4">
-            <p className="font-medium text-gray-900 mb-3">Bloquear horario</p>
-            <div className="space-y-3">
-              <div>
-                <label className="label">Desde</label>
-                <input type="datetime-local" value={bloqueoDesde}
-                  onChange={e => setBloqueoDesde(e.target.value)} className="input" />
-              </div>
-              <div>
-                <label className="label">Hasta</label>
-                <input type="datetime-local" value={bloqueoHasta}
-                  onChange={e => setBloqueoHasta(e.target.value)} className="input" />
-              </div>
-              <div>
-                <label className="label">Motivo (opcional)</label>
-                <input value={bloqueoMotivo} onChange={e => setBloqueoMotivo(e.target.value)}
-                  className="input" placeholder="Ej: Vacaciones, cita médica..." />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={crearBloqueo} className="btn-primary flex-1">Bloquear</button>
-                <button onClick={() => setMostrarBloqueo(false)} className="btn-secondary flex-1">Cancelar</button>
-              </div>
+        {panel === 'bloquear' && (
+          <div className="card space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-brand-600" /> Bloquear horario
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Toca la primera hora libre y luego la última hora del rango a bloquear (igual que elegir
+                turno en reservas).
+              </p>
+            </div>
+            <GrillaHorarios
+              slots={slotsBloqueo}
+              cargando={cargandoSlotsBloqueo}
+              mostrarMotivoBloqueo
+              bloqueoHoraInicio={bloqueoHoraInicio}
+              bloqueoHoraFin={bloqueoHoraFin}
+              onElegirHoraBloqueo={onElegirHoraBloqueo}
+            />
+            <div>
+              <label className="label">Motivo (opcional)</label>
+              <input
+                value={bloqueoMotivo}
+                onChange={e => setBloqueoMotivo(e.target.value)}
+                className="input"
+                placeholder="Ej.: Descanso, cita médica…"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={crearBloqueo} className="btn-primary flex-1">
+                Guardar bloqueo
+              </button>
+              <button
+                type="button"
+                onClick={() => setPanel(null)}
+                className="btn-secondary flex-1"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         )}
 
-        {/* Lista de reservas */}
-        {reservas.length === 0 ? (
-          <div className="card text-center py-10">
-            <p className="text-gray-400 text-sm">No tienes reservas para este día</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reservas.map(r => (
-              <div key={r.id} className="card">
-                <div className="flex items-start gap-3">
-                  <div className="text-center shrink-0 w-14">
-                    <p className="text-lg font-bold text-brand-600">
-                      {new Date(r.fecha_hora).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    </p>
-                    <p className="text-xs text-gray-400">{r.duracion} min</p>
+        {panel === 'nueva-reserva' && (
+          <div className="card space-y-4">
+            {nuevaPaso === 'servicio' && (
+              <>
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-brand-600" /> Nueva reserva
+                </h3>
+                <p className="text-xs text-gray-500 capitalize">Día: {subtituloDia}</p>
+                <p className="text-sm text-gray-600 mb-2">Elige el servicio</p>
+                {servicios.length === 0 && (
+                  <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3 mb-3">
+                    No hay servicios activos. El dueño debe configurarlos en el panel.
+                  </p>
+                )}
+                {servicios.length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {servicios.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setServicioId(s.id)
+                          setNuevaPaso('hora')
+                        }}
+                        className="w-full text-left p-3 rounded-xl border border-gray-200 hover:border-brand-400 bg-white transition-colors"
+                      >
+                        <p className="font-medium text-gray-900">{s.nombre}</p>
+                        <p className="text-xs text-gray-500">
+                          {s.duracion} min · {formatPrecio(s.precio)}
+                        </p>
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{r.cliente?.nombre}</p>
-                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
-                      {r.cliente?.telefono && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {r.cliente.telefono}
-                        </span>
-                      )}
-                      {r.servicio && (
-                        <span className="flex items-center gap-1">
-                          <Scissors className="w-3 h-3" /> {r.servicio.nombre}
-                        </span>
-                      )}
+                )}
+                <button type="button" onClick={() => setPanel(null)} className="btn-secondary w-full">
+                  Cancelar
+                </button>
+              </>
+            )}
+
+            {nuevaPaso === 'hora' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setNuevaPaso('servicio')}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Elegir otro servicio
+                </button>
+                <h3 className="font-semibold text-gray-900">Elige la hora</h3>
+                <p className="text-xs text-gray-500 capitalize mb-2">{subtituloDia}</p>
+                <GrillaHorarios
+                  slots={slotsReserva}
+                  cargando={cargandoSlotsReserva}
+                  mostrarMotivoBloqueo
+                  horaSeleccionada={horaReserva}
+                  onElegirHoraReserva={h => {
+                    setHoraReserva(h)
+                    setNuevaPaso('datos')
+                  }}
+                />
+              </>
+            )}
+
+            {nuevaPaso === 'datos' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setNuevaPaso('hora')}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Cambiar hora
+                </button>
+                <h3 className="font-semibold text-gray-900">Datos del cliente</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Nombre</label>
+                    <input
+                      className="input"
+                      value={nrNombre}
+                      onChange={e => setNrNombre(e.target.value)}
+                      placeholder="Cliente"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Teléfono / WhatsApp</label>
+                    <input
+                      className="input"
+                      value={nrTelefono}
+                      onChange={e => setNrTelefono(e.target.value)}
+                      type="tel"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Email (opcional)</label>
+                    <input
+                      className="input"
+                      value={nrEmail}
+                      onChange={e => setNrEmail(e.target.value)}
+                      type="email"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Notas</label>
+                    <textarea
+                      className="input resize-none h-16"
+                      value={nrNotas}
+                      onChange={e => setNrNotas(e.target.value)}
+                    />
+                  </div>
+                  {neg.cancelacion_mensaje && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+                      {neg.cancelacion_mensaje}
                     </div>
-                    {r.notas_cliente && (
-                      <p className="text-xs text-gray-400 mt-1 italic">"{r.notas_cliente}"</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    {r.estado === 'confirmada' && (
-                      <>
-                        <button onClick={() => cambiarEstado(r.id, 'completada')}
-                          className="flex items-center gap-1 px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg">
-                          <CheckCircle className="w-3 h-3" /> Listo
-                        </button>
-                        <button onClick={() => cambiarEstado(r.id, 'no_show')}
-                          className="flex items-center gap-1 px-2 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg">
-                          <X className="w-3 h-3" /> No vino
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  )}
+                  <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nrPolitica}
+                      onChange={e => setNrPolitica(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-brand-600"
+                    />
+                    Acepto la política de reservas
+                  </label>
                 </div>
-              </div>
-            ))}
+                <button
+                  type="button"
+                  disabled={nrCargando}
+                  onClick={() => void crearReservaManual()}
+                  className="btn-primary w-full"
+                >
+                  {nrCargando ? 'Guardando…' : 'Confirmar reserva'}
+                </button>
+              </>
+            )}
           </div>
         )}
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Reservas del día</h3>
+          {reservas.length === 0 ? (
+            <div className="card text-center py-10">
+              <p className="text-gray-400 text-sm">No tienes reservas para este día</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reservas.map(r => (
+                <div key={r.id} className="card">
+                  <div className="flex items-start gap-3">
+                    <div className="text-center shrink-0 w-14">
+                      <p className="text-lg font-bold text-brand-600">
+                        {new Date(r.fecha_hora).toLocaleTimeString('es-EC', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-400">{r.duracion} min</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{r.cliente?.nombre}</p>
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
+                        {r.cliente?.telefono && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3" /> {r.cliente.telefono}
+                          </span>
+                        )}
+                        {r.servicio && (
+                          <span className="flex items-center gap-1">
+                            <Scissors className="w-3 h-3" /> {r.servicio.nombre}
+                          </span>
+                        )}
+                      </div>
+                      {r.notas_cliente && (
+                        <p className="text-xs text-gray-400 mt-1 italic">&quot;{r.notas_cliente}&quot;</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {r.estado === 'confirmada' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void cambiarEstado(r.id, 'completada')}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg"
+                          >
+                            <CheckCircle className="w-3 h-3" /> Listo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void cambiarEstado(r.id, 'no_show')}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg"
+                          >
+                            <X className="w-3 h-3" /> No vino
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format, addDays, isSameDay } from 'date-fns'
+import { format, addDays, startOfDay, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { ChevronLeft, CheckCircle, Clock, Scissors, User, Calendar } from 'lucide-react'
 import type { Negocio, Barbero, Servicio, SlotDisponible } from '@/types'
 import { formatPrecio } from '@/lib/utils'
+import CalendarioMes from '@/components/calendario/CalendarioMes'
 
 interface Props {
   negocio: Negocio & { horario: any }
@@ -36,6 +37,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const [hora, setHora] = useState<string>('')
   const [slots, setSlots] = useState<SlotDisponible[]>([])
   const [cargandoSlots, setCargandoSlots] = useState(false)
+  const [mesCalendarioReserva, setMesCalendarioReserva] = useState(() => startOfMonth(new Date()))
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ClienteData>({
     resolver: zodResolver(clienteSchema),
@@ -44,11 +46,14 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const servicioSeleccionado = servicios.find(s => s.id === servicioId)
   const barberoSeleccionado  = barberos.find(b => b.id === barberoId)
 
-  const diasDisponibles = Array.from({ length: negocio.max_dias_adelanto }, (_, i) => addDays(new Date(), i))
-    .filter(d => {
-      const dia = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'][d.getDay()]
-      return negocio.horario[dia]?.abierto
-    })
+  const DIAS_SEM = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'] as const
+
+  const diaEsLaborableBooking = (d: Date) => {
+    const nombre = DIAS_SEM[d.getDay()]
+    return !!(negocio.horario as any)[nombre]?.abierto
+  }
+
+  const fechaMaxReserva = addDays(startOfDay(new Date()), negocio.max_dias_adelanto)
 
   async function cargarSlots(diaSeleccionado: Date) {
     setCargandoSlots(true)
@@ -251,21 +256,20 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-brand-600" /> Elige el día
           </h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {diasDisponibles.slice(0, 28).map(d => {
-              const esSeleccionado = fecha ? isSameDay(d, fecha) : false
-              return (
-                <button key={d.toISOString()}
-                  onClick={() => { setFecha(d); setHora(''); cargarSlots(d); setPaso('hora') }}
-                  className={`p-3 rounded-xl border text-center transition-all
-                    ${esSeleccionado ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                  <p className="text-xs text-gray-500 capitalize">{format(d, 'EEE', { locale: es })}</p>
-                  <p className="text-lg font-bold text-gray-900">{format(d, 'd')}</p>
-                  <p className="text-xs text-gray-400">{format(d, 'MMM', { locale: es })}</p>
-                </button>
-              )
-            })}
-          </div>
+          <CalendarioMes
+            mesVisible={mesCalendarioReserva}
+            onCambiarMes={setMesCalendarioReserva}
+            diaSeleccionado={fecha ?? startOfDay(new Date())}
+            onSeleccionarDia={d => {
+              const dia = startOfDay(d)
+              setFecha(dia)
+              setHora('')
+              void cargarSlots(dia)
+              setPaso('hora')
+            }}
+            diaEsLaborable={diaEsLaborableBooking}
+            fechaMax={fechaMaxReserva}
+          />
         </div>
       )}
 

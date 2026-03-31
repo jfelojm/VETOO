@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const negocioId = searchParams.get('negocio_id')
   const fechaIso  = searchParams.get('fecha_iso')
   const barberoId = searchParams.get('barbero_id') || undefined
+  const conDetalle = searchParams.get('detalle') === '1'
 
   if (!negocioId || !fechaIso) {
     return NextResponse.json({ error: 'Parámetros requeridos' }, { status: 400 })
@@ -67,24 +68,29 @@ export async function GET(req: NextRequest) {
     const slotFin = addMinutes(cursor, duracion)
     const horaStr = format(cursor, 'HH:mm')
 
-    const tieneReserva = (reservas ?? []).some((r: any) => {
+    const conflictoReserva = (reservas ?? []).find((r: any) => {
       if (barberoId && r.barbero_id !== barberoId) return false
       const rInicio = new Date(r.fecha_hora)
       const rFin    = addMinutes(rInicio, r.duracion)
       return cursor < rFin && slotFin > rInicio
     })
 
-    const estaBloqueado = (bloqueos ?? []).some((b: any) => {
+    const conflictoBloqueo = (bloqueos ?? []).find((b: any) => {
       if (barberoId && b.barbero_id && b.barbero_id !== barberoId) return false
       const bInicio = new Date(b.fecha_desde)
       const bFin    = new Date(b.fecha_hasta)
       return cursor < bFin && slotFin > bInicio
     })
 
-    slots.push({
+    const disponible = !conflictoReserva && !conflictoBloqueo
+    const slot: { hora: string; disponible: boolean; motivo?: 'bloqueo' | 'ocupado' } = {
       hora: horaStr,
-      disponible: !tieneReserva && !estaBloqueado,
-    })
+      disponible,
+    }
+    if (conDetalle && !disponible) {
+      slot.motivo = conflictoBloqueo ? 'bloqueo' : 'ocupado'
+    }
+    slots.push(slot)
 
     cursor = addMinutes(cursor, duracion)
   }
