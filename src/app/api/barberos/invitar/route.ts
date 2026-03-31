@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         negocio_id: negocio_id,
         rol: 'barbero',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/barbero/setup`,
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/barbero/setup`,
     })
 
     if (inviteError) {
