@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('token')
   const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/dashboard'
+  console.log('CALLBACK PARAMS:', Object.fromEntries(searchParams.entries()))
  
   const cookieStore = await cookies()
   const supabase = createServerClient(
