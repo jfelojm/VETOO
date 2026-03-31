@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -13,39 +12,37 @@ export default function BarberoSetupPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [cargando, setCargando] = useState(false)
   const [nombre, setNombre] = useState('')
+  const [listo, setListo] = useState(false)
 
   useEffect(() => {
     async function cargar() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) { router.replace('/auth/login'); return }
       const barberoId = user.user_metadata?.barbero_id
-      if (!barberoId) return
+      if (!barberoId) { router.replace('/dashboard'); return }
       const { data } = await supabase.from('barberos').select('nombre').eq('id', barberoId).single()
       if (data) setNombre(data.nombre)
+      setListo(true)
     }
     cargar()
   }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (password !== confirmPassword) {
-      toast.error('Las contraseñas no coinciden')
-      return
-    }
-    if (password.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres')
-      return
-    }
+    if (password !== confirmPassword) { toast.error('Las contraseñas no coinciden'); return }
+    if (password.length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return }
     setCargando(true)
     const { error } = await supabase.auth.updateUser({ password })
-    if (error) {
-      toast.error('Error al configurar contraseña')
-      setCargando(false)
-      return
-    }
-    toast.success('Contraseña configurada correctamente')
+    if (error) { toast.error('Error al configurar contraseña'); setCargando(false); return }
+    toast.success('¡Contraseña creada! Bienvenido')
     setTimeout(() => router.replace('/barbero/dashboard'), 1000)
   }
+
+  if (!listo) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <Scissors className="w-8 h-8 text-brand-600 animate-pulse" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -62,25 +59,13 @@ export default function BarberoSetupPage() {
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <label className="label">Nueva contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="input"
-                placeholder="Mínimo 6 caracteres"
-                required
-              />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="input" placeholder="Mínimo 6 caracteres" required />
             </div>
             <div>
               <label className="label">Confirmar contraseña</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                className="input"
-                placeholder="Repite tu contraseña"
-                required
-              />
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                className="input" placeholder="Repite tu contraseña" required />
             </div>
             <button type="submit" disabled={cargando} className="btn-primary w-full">
               {cargando ? 'Configurando...' : 'Crear contraseña'}
