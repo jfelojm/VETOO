@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { addMinutes, format } from 'date-fns'
+import { addDays, addMinutes } from 'date-fns'
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
+
+/** Zona del negocio: en Vercel el servidor está en UTC; el horario JSON es “reloj local” del salón. */
+const TZ_NEGOCIO = process.env.NEGOCIO_TIMEZONE || 'America/Guayaquil'
+
+/** Día ISO (lunes=1 … domingo=7) → clave en `negocios.horario` */
+const DIA_POR_ISO = {
+  1: 'lunes',
+  2: 'martes',
+  3: 'miercoles',
+  4: 'jueves',
+  5: 'viernes',
+  6: 'sabado',
+  7: 'domingo',
+} as const
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0')
+}
+
+function nombreDiaEnZona(fechaIso: string, timeZone: string) {
+  const mediodia = fromZonedTime(`${fechaIso}T12:00:00`, timeZone)
+  const isoDow = Number(formatInTimeZone(mediodia, timeZone, 'i'))
+  return DIA_POR_ISO[isoDow as keyof typeof DIA_POR_ISO]
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -26,11 +51,8 @@ export async function GET(req: NextRequest) {
 
   if (!negocio) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
 
-  const [anio, mes, dia] = fechaIso.split('-').map(Number)
-  const DIAS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado']
-  const diaSemana = new Date(anio, mes - 1, dia).getDay()
-  const diaNombre = DIAS[diaSemana]
-  const horarioDia = negocio.horario?.[diaNombre]
+  const diaNombre = nombreDiaEnZona(fechaIso, TZ_NEGOCIO)
+  const horarioDia = diaNombre ? negocio.horario?.[diaNombre] : undefined
 
   if (!horarioDia?.abierto || !horarioDia?.desde || !horarioDia?.hasta) {
     return NextResponse.json({ slots: [] })
@@ -39,34 +61,40 @@ export async function GET(req: NextRequest) {
   const [hDesde, mDesde] = String(horarioDia.desde).split(':').map(Number)
   const [hHasta, mHasta] = String(horarioDia.hasta).split(':').map(Number)
 
-  const inicio = new Date(anio, mes - 1, dia, hDesde, mDesde, 0)
-  const fin    = new Date(anio, mes - 1, dia, hHasta, mHasta, 0)
+  const inicioJornada = fromZonedTime(
+    `${fechaIso}T${pad2(hDesde)}:${pad2(mDesde)}:00`,
+    TZ_NEGOCIO
+  )
+  const finJornada = fromZonedTime(
+    `${fechaIso}T${pad2(hHasta)}:${pad2(mHasta)}:00`,
+    TZ_NEGOCIO
+  )
   const duracion = negocio.duracion_turno_min
 
-  const inicioUTC = new Date(Date.UTC(anio, mes - 1, dia, 0, 0, 0))
-  const finUTC    = new Date(Date.UTC(anio, mes - 1, dia, 23, 59, 59))
+  const rangoInicio = fromZonedTime(`${fechaIso}T00:00:00`, TZ_NEGOCIO)
+  const rangoFinExclusivo = addDays(rangoInicio, 1)
 
   const { data: reservas } = await supabase
     .from('reservas')
     .select('barbero_id, fecha_hora, duracion, estado')
     .eq('negocio_id', negocioId)
-    .gte('fecha_hora', inicioUTC.toISOString())
-    .lte('fecha_hora', finUTC.toISOString())
+    .gte('fecha_hora', rangoInicio.toISOString())
+    .lt('fecha_hora', rangoFinExclusivo.toISOString())
     .neq('estado', 'cancelada')
 
   const { data: bloqueos } = await supabase
     .from('bloqueos')
     .select('*')
     .eq('negocio_id', negocioId)
-    .lte('fecha_desde', finUTC.toISOString())
-    .gte('fecha_hasta', inicioUTC.toISOString())
+    .lt('fecha_desde', rangoFinExclusivo.toISOString())
+    .gt('fecha_hasta', rangoInicio.toISOString())
 
   const slots = []
-  let cursor = new Date(inicio)
+  let cursor = new Date(inicioJornada)
 
-  while (addMinutes(cursor, duracion) <= fin) {
+  while (addMinutes(cursor, duracion) <= finJornada) {
     const slotFin = addMinutes(cursor, duracion)
-    const horaStr = format(cursor, 'HH:mm')
+    const horaStr = formatInTimeZone(cursor, TZ_NEGOCIO, 'HH:mm')
 
     const conflictoReserva = (reservas ?? []).find((r: any) => {
       if (barberoId && r.barbero_id !== barberoId) return false
