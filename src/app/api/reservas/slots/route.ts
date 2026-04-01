@@ -3,7 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 import { addDays, addMinutes } from 'date-fns'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import type { BloqueoSlotRow, ReservaSlotRow } from '@/lib/reservas-capacidad'
-import { slotDisponibleSinPreferencia, solapa } from '@/lib/reservas-capacidad'
+import {
+  slotDisponibleParaBarberoConcreto,
+  slotDisponibleSinPreferencia,
+} from '@/lib/reservas-capacidad'
 
 /** Zona del negocio: en Vercel el servidor está en UTC; el horario JSON es “reloj local” del salón. */
 const TZ_NEGOCIO = process.env.NEGOCIO_TIMEZONE || 'America/Guayaquil'
@@ -96,6 +99,7 @@ export async function GET(req: NextRequest) {
     .select('id')
     .eq('negocio_id', negocioId)
     .eq('activo', true)
+    .order('nombre')
 
   const barberIdsActivos = (barberosRows ?? []).map((b: { id: string }) => b.id)
 
@@ -110,22 +114,16 @@ export async function GET(req: NextRequest) {
     let motivo: 'bloqueo' | 'ocupado' | undefined
 
     if (barberoId) {
-      const conflictoReserva = (reservas ?? []).find((r: any) => {
-        if (r.barbero_id !== barberoId) return false
-        const rInicio = new Date(r.fecha_hora)
-        const rFin    = addMinutes(rInicio, r.duracion)
-        return solapa(cursor, slotFin, rInicio, rFin)
-      })
-
-      const conflictoBloqueo = (bloqueos ?? []).find((b: any) => {
-        if (b.barbero_id && b.barbero_id !== barberoId) return false
-        const bInicio = new Date(b.fecha_desde)
-        const bFin    = new Date(b.fecha_hasta)
-        return solapa(cursor, slotFin, bInicio, bFin)
-      })
-
-      disponible = !conflictoReserva && !conflictoBloqueo
-      if (!disponible) motivo = conflictoBloqueo ? 'bloqueo' : 'ocupado'
+      const d = slotDisponibleParaBarberoConcreto(
+        barberoId,
+        cursor,
+        slotFin,
+        barberIdsActivos,
+        (reservas ?? []) as ReservaSlotRow[],
+        (bloqueos ?? []) as BloqueoSlotRow[]
+      )
+      disponible = d.disponible
+      if (!disponible) motivo = d.motivo
     } else {
       const r = slotDisponibleSinPreferencia(
         cursor,

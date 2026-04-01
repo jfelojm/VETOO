@@ -38,6 +38,8 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
   const [slots, setSlots] = useState<SlotDisponible[]>([])
   const [cargandoSlots, setCargandoSlots] = useState(false)
   const [mesCalendarioReserva, setMesCalendarioReserva] = useState(() => startOfMonth(new Date()))
+  /** Nombre del barbero guardado en servidor (incluye asignación automática en “sin preferencia”). */
+  const [barberoConfirmadoNombre, setBarberoConfirmadoNombre] = useState<string>('')
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ClienteData>({
     resolver: zodResolver(clienteSchema),
@@ -129,6 +131,12 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       return
     }
 
+    const ok = await res.json() as { barbero_id?: string }
+    const asignado = ok.barbero_id
+      ? barberos.find(b => b.id === ok.barbero_id)?.nombre
+      : undefined
+    setBarberoConfirmadoNombre(asignado ?? barberoSeleccionado?.nombre ?? '')
+
     setPaso('confirmado')
   }
 
@@ -147,7 +155,7 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Barbero</span>
-            <span className="font-medium">{barberoSeleccionado?.nombre ?? 'Cualquiera'}</span>
+            <span className="font-medium">{barberoConfirmadoNombre || barberoSeleccionado?.nombre || 'Cualquiera'}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Fecha</span>
@@ -159,7 +167,14 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
           </div>
         </div>
         <button
-          onClick={() => { setPaso('servicio'); setServicioId(''); setBarberoId(''); setFecha(null); setHora('') }}
+          onClick={() => {
+            setPaso('servicio')
+            setServicioId('')
+            setBarberoId('')
+            setFecha(null)
+            setHora('')
+            setBarberoConfirmadoNombre('')
+          }}
           className="btn-secondary text-sm"
         >
           Hacer otra reserva
