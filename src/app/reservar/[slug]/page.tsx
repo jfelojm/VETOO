@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { planActivo } from '@/lib/utils'
 import BookingFlow from '@/components/booking/BookingFlow'
