@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getPublicAppUrl } from '@/lib/app-url'
  
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +27,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Profesional no encontrado' }, { status: 404 })
     }
  
-    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/barbero/setup`
+    // Hash con tokens solo existe en el cliente → /auth/confirm (no /api/auth/callback).
+    const redirectTo = `${getPublicAppUrl()}/auth/confirm?next=/barbero/setup`
  
     // Verificar si el usuario ya existe
     const { data: usuariosExistentes } = await supabase.auth.admin.listUsers()
