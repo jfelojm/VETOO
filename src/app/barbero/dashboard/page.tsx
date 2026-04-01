@@ -78,6 +78,9 @@ export default function BarberoDashboard() {
   const [bloqueoMotivo, setBloqueoMotivo] = useState('')
 
   const [servicios, setServicios] = useState<Servicio[]>([])
+  /** Staff activo del negocio (para asignar la reserva a otro colega). */
+  const [barberosNegocio, setBarberosNegocio] = useState<{ id: string; nombre: string }[]>([])
+  const [nrBarberoDestinoId, setNrBarberoDestinoId] = useState<string>('')
   const [nuevaPaso, setNuevaPaso] = useState<'servicio' | 'hora' | 'datos'>('servicio')
   const [servicioId, setServicioId] = useState<string>('')
   const [slotsReserva, setSlotsReserva] = useState<SlotDisponible[]>([])
@@ -148,7 +151,16 @@ export default function BarberoDashboard() {
         .eq('activo', true)
         .order('orden')
 
+      const { data: staff } = await supabase
+        .from('barberos')
+        .select('id, nombre')
+        .eq('negocio_id', b.negocio_id)
+        .eq('activo', true)
+        .order('nombre')
+
       setServicios((servs as Servicio[]) ?? [])
+      setBarberosNegocio(staff ?? [])
+      setNrBarberoDestinoId(b.id)
       setCargando(false)
     }
     void cargar()
@@ -224,12 +236,23 @@ export default function BarberoDashboard() {
   }, [panel, barbero, diaSeleccionado])
 
   useEffect(() => {
-    if (panel !== 'nueva-reserva' || nuevaPaso !== 'hora' || !barbero?.negocio || !servicioId) return
+    if (
+      panel !== 'nueva-reserva' ||
+      nuevaPaso !== 'hora' ||
+      !barbero?.negocio ||
+      !servicioId ||
+      !nrBarberoDestinoId
+    )
+      return
     let cancel = false
     setCargandoSlotsReserva(true)
     setHoraReserva(null)
     void (async () => {
-      const slots = await fetchSlotsDetalle(barbero.negocio!.id, diaSeleccionado, barbero.id)
+      const slots = await fetchSlotsDetalle(
+        barbero.negocio!.id,
+        diaSeleccionado,
+        nrBarberoDestinoId
+      )
       if (!cancel) {
         const ahora = new Date()
         const esHoy = diaSeleccionado.toDateString() === ahora.toDateString()
@@ -253,7 +276,7 @@ export default function BarberoDashboard() {
     return () => {
       cancel = true
     }
-  }, [panel, nuevaPaso, barbero, diaSeleccionado, servicioId])
+  }, [panel, nuevaPaso, barbero, diaSeleccionado, servicioId, nrBarberoDestinoId])
 
   async function crearBloqueo() {
     if (!barbero?.negocio || !bloqueoHoraInicio || !bloqueoHoraFin) {
@@ -314,7 +337,7 @@ export default function BarberoDashboard() {
   }
 
   async function crearReservaManual() {
-    if (!barbero?.negocio || !horaReserva || !servicioId) return
+    if (!barbero?.negocio || !horaReserva || !servicioId || !nrBarberoDestinoId) return
     if (!nrNombre.trim() || nrTelefono.trim().length < 7) {
       toast.error('Nombre y teléfono válidos requeridos')
       return
@@ -332,7 +355,7 @@ export default function BarberoDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         negocio_id: barbero.negocio_id,
-        barbero_id: barbero.id,
+        barbero_id: nrBarberoDestinoId,
         servicio_id: servicioId,
         nombre: nrNombre.trim(),
         telefono: nrTelefono.trim(),
@@ -348,10 +371,16 @@ export default function BarberoDashboard() {
       toast.error(err.error ?? 'Error al crear reserva')
       return
     }
-    toast.success('Reserva creada')
+    const destinoNombre = barberosNegocio.find(x => x.id === nrBarberoDestinoId)?.nombre
+    toast.success(
+      destinoNombre && destinoNombre !== barbero.nombre
+        ? `Reserva creada en la agenda de ${destinoNombre}`
+        : 'Reserva creada'
+    )
     setPanel(null)
     setNuevaPaso('servicio')
     setServicioId('')
+    setNrBarberoDestinoId(barbero.id)
     setHoraReserva(null)
     setNrNombre('')
     setNrTelefono('')
@@ -503,6 +532,7 @@ export default function BarberoDashboard() {
                 setPanel(panel === 'nueva-reserva' ? null : 'nueva-reserva')
                 setNuevaPaso('servicio')
                 setServicioId('')
+                setNrBarberoDestinoId(barbero.id)
               }}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                 panel === 'nueva-reserva'
@@ -567,6 +597,30 @@ export default function BarberoDashboard() {
                   <UserPlus className="w-4 h-4 text-brand-600" /> Nueva reserva
                 </h3>
                 <p className="text-xs text-gray-500 capitalize">Día: {subtituloDia}</p>
+                {barberosNegocio.length > 1 && (
+                  <div className="mb-4">
+                    <label className="label">Agenda del profesional</label>
+                    <select
+                      className="input"
+                      value={nrBarberoDestinoId}
+                      onChange={e => {
+                        setNrBarberoDestinoId(e.target.value)
+                        setServicioId('')
+                        setHoraReserva(null)
+                      }}
+                    >
+                      {barberosNegocio.map(bi => (
+                        <option key={bi.id} value={bi.id}>
+                          {bi.nombre}
+                          {bi.id === barbero.id ? ' (tú)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      El nombre del cliente es aparte: la reserva se guarda en la agenda de quien elijas aquí.
+                    </p>
+                  </div>
+                )}
                 <p className="text-sm text-gray-600 mb-2">Elige el servicio</p>
                 {servicios.length === 0 && (
                   <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3 mb-3">

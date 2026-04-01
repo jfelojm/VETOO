@@ -84,12 +84,14 @@ export async function POST(req: NextRequest) {
     let barberoInsert: string
 
     if (!data.barbero_id) {
+      const tieBreakSeed = `${data.negocio_id}-${formatInTimeZone(cursor, TZ_NEGOCIO, 'yyyy-MM-dd_HH:mm')}`
       const picked = elegirBarberoParaSinPreferencia(
         cursor,
         slotFin,
         barberIdsActivos,
         reservasArr,
-        bloqueosArr
+        bloqueosArr,
+        tieBreakSeed
       )
       if (!picked) {
         return NextResponse.json(
@@ -99,6 +101,12 @@ export async function POST(req: NextRequest) {
       }
       barberoInsert = picked
     } else {
+      if (!barberIdsActivos.includes(data.barbero_id)) {
+        return NextResponse.json(
+          { error: 'El barbero indicado no pertenece a este negocio o está inactivo.' },
+          { status: 400 }
+        )
+      }
       const dispo = slotDisponibleParaBarberoConcreto(
         data.barbero_id,
         cursor,

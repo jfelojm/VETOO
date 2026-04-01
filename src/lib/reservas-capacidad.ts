@@ -92,13 +92,41 @@ export function slotDisponibleSinPreferencia(
   return { disponible: false, motivo: bloqueoNegocio ? 'bloqueo' : 'ocupado' }
 }
 
-/** Barbero estable para guardar una reserva “sin preferencia” (orden por id). */
+function hashString32(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(31, h) + s.charCodeAt(i) | 0
+  }
+  return Math.abs(h)
+}
+
+/** Reservas del día ya acotadas a `reservas`; cuenta por barbero (solo filas con barbero_id). */
+function contarReservasDiaPorBarbero(
+  reservas: ReservaSlotRow[],
+  ids: string[]
+): Map<string, number> {
+  const set = new Set(ids)
+  const m = new Map<string, number>()
+  for (const id of ids) m.set(id, 0)
+  for (const r of reservas) {
+    if (r.barbero_id && set.has(r.barbero_id)) {
+      m.set(r.barbero_id, (m.get(r.barbero_id) ?? 0) + 1)
+    }
+  }
+  return m
+}
+
+/**
+ * Barbero para “sin preferencia”: el que menos reservas lleva ese día entre los libres en el hueco;
+ * si empatan, desempate estable con `tieBreakSeed` (fecha/hora + negocio) para repartir entre iguales.
+ */
 export function elegirBarberoParaSinPreferencia(
   cursor: Date,
   slotFin: Date,
   barberIds: string[],
   reservas: ReservaSlotRow[],
-  bloqueos: BloqueoSlotRow[]
+  bloqueos: BloqueoSlotRow[],
+  tieBreakSeed: string
 ): string | null {
   if (barberIds.length === 0) return null
   const { libres, sinAsignar } = analizarCapacidadSlot(
@@ -109,8 +137,17 @@ export function elegirBarberoParaSinPreferencia(
     bloqueos
   )
   if (libres.length <= sinAsignar) return null
-  /** Primer libre según el orden de `barberIds` (convención: negocio ordenado por nombre). */
-  return libres[0]
+
+  const counts = contarReservasDiaPorBarbero(reservas, libres)
+  let min = Infinity
+  for (const id of libres) {
+    const c = counts.get(id) ?? 0
+    if (c < min) min = c
+  }
+  const candidatos = libres.filter(id => (counts.get(id) ?? 0) === min)
+  candidatos.sort((a, b) => a.localeCompare(b))
+  const idx = hashString32(tieBreakSeed) % candidatos.length
+  return candidatos[idx]
 }
 
 /**
