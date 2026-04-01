@@ -138,7 +138,7 @@ export default async function ReservarPage({ params }: Props) {
 
       {/* Footer */}
       <div className="text-center py-6 text-xs text-gray-300">
-        Reservas online por <span className="font-medium">BarberApp</span>
+        Reservas online por <span className="font-medium">Turnapp</span>
       </div>
 
     </div>

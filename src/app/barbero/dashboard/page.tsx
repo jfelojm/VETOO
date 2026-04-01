@@ -440,7 +440,7 @@ export default function BarberoDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <Scissors className="w-5 h-5 text-brand-600" />
-            <span className="font-bold text-sm">BarberApp</span>
+            <span className="font-bold text-sm">Turnapp</span>
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{neg.nombre}</p>
         </div>

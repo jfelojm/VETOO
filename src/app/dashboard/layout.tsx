@@ -76,7 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-5 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Scissors className="w-5 h-5 text-brand-600" />
-            <span className="font-bold text-sm">BarberApp</span>
+            <span className="font-bold text-sm">Turnapp</span>
           </div>
           <p className="text-xs text-gray-400 mt-1 truncate">{negocio?.nombre}</p>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-brand-700 bg-brand-50 rounded-lg px-2 py-1 border border-brand-100">

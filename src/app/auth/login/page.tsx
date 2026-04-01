@@ -72,7 +72,7 @@ function LoginForm() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
             <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">BarberApp</span>
+            <span className="text-xl font-bold">Turnapp</span>
           </div>
           <p className="text-gray-500 text-sm">Inicia sesión en tu panel</p>
         </div>
@@ -119,7 +119,7 @@ function LoginForm() {
         <p className="text-center text-sm text-gray-500 mt-6">
           ¿No tienes cuenta?{' '}
           <Link href="/auth/register" className="text-brand-600 font-medium hover:underline">
-            Registra tu barbería
+            Registra tu negocio
           </Link>
         </p>
       </div>

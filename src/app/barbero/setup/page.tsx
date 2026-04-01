@@ -91,7 +91,7 @@ export default function BarberoSetupPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
             <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">BarberApp</span>
+            <span className="text-xl font-bold">Turnapp</span>
           </div>
           <p className="text-gray-700 font-medium">Hola {nombre || 'profesional'}</p>
           <p className="text-gray-500 text-sm mt-1">Crea tu contraseña para acceder a tu panel</p>

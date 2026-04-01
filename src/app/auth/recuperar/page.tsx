@@ -65,7 +65,7 @@ export default function RecuperarPasswordPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
             <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">BarberApp</span>
+            <span className="text-xl font-bold">Turnapp</span>
           </div>
           <p className="text-gray-500 text-sm">Recuperar contraseña</p>
         </div>

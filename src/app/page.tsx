@@ -10,14 +10,14 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Scissors className="w-6 h-6 text-brand-600" />
-            <span className="font-bold text-lg">BarberApp</span>
+            <span className="font-bold text-lg">Turnapp</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/auth/login" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
               Iniciar sesión
             </Link>
             <Link href="/auth/register" className="btn-primary text-sm">
-              Registrar mi barbería
+              Registrar mi negocio
             </Link>
           </div>
         </div>
@@ -30,8 +30,7 @@ export default function HomePage() {
           14 días gratis — sin tarjeta de crédito
         </div>
         <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-          Reservas online para tu<br />
-          <span className="text-brand-600">barbería o peluquería</span>
+          <span className="text-brand-600">Reservas online para tu negocio</span>
         </h1>
         <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto">
           Tus clientes reservan directamente desde Instagram o WhatsApp.
@@ -64,7 +63,7 @@ export default function HomePage() {
               {
                 icon: Calendar,
                 titulo: 'Gestión de agenda en tiempo real',
-                desc: 'Ve todas tus reservas del día, bloquea horarios, configura cada barbero con su disponibilidad.'
+                desc: 'Ve todas tus reservas del día, bloquea horarios y configura la disponibilidad de cada profesional.'
               },
               {
                 icon: Bell,
@@ -83,8 +82,8 @@ export default function HomePage() {
               },
               {
                 icon: Scissors,
-                titulo: 'Múltiples barberos',
-                desc: 'Agrega todos los profesionales de tu local. Cada uno con su agenda y disponibilidad independiente.'
+                titulo: 'Varios profesionales',
+                desc: 'Agrega a todo tu equipo. Cada uno con su agenda y disponibilidad independiente.'
               },
             ].map((f, i) => (
               <div key={i} className="card">
@@ -107,19 +106,19 @@ export default function HomePage() {
               {
                 plan: 'Básico',
                 precio: 20,
-                features: ['2 barberos', 'Reservas ilimitadas', 'Confirmación por email', 'Política de cancelación', 'Link para IG y WhatsApp'],
+                features: ['2 profesionales', 'Reservas ilimitadas', 'Confirmación por email', 'Política de cancelación', 'Link para IG y WhatsApp'],
                 destacado: false,
               },
               {
                 plan: 'Pro',
                 precio: 40,
-                features: ['5 barberos', 'Todo lo del Básico', 'Recordatorios automáticos', 'Reportes avanzados', 'Soporte prioritario'],
+                features: ['5 profesionales', 'Todo lo del Básico', 'Recordatorios automáticos', 'Reportes avanzados', 'Soporte prioritario'],
                 destacado: true,
               },
               {
                 plan: 'Premium',
                 precio: 80,
-                features: ['Barberos ilimitados', 'Todo lo del Pro', 'Integración WhatsApp', 'API personalizada', 'Onboarding dedicado'],
+                features: ['Profesionales ilimitados', 'Todo lo del Pro', 'Integración WhatsApp', 'API personalizada', 'Onboarding dedicado'],
                 destacado: false,
               },
             ].map((p) => (
@@ -159,7 +158,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-8 text-center text-sm text-gray-400">
-        <p>© 2025 BarberApp · Hecho para barberías y peluquerías locales</p>
+        <p>© 2025 Turnapp · Hecho para negocios de belleza y bienestar</p>
       </footer>
 
     </div>

@@ -161,7 +161,7 @@ export default function RegisterPage() {
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 mb-2">
               <Scissors className="w-7 h-7 text-brand-600" />
-              <span className="text-xl font-bold">BarberApp</span>
+              <span className="text-xl font-bold">Turnapp</span>
             </div>
             <p className="text-gray-500 text-sm">14 días gratis · Sin tarjeta de crédito</p>
             <h2 className="text-lg font-semibold text-gray-900 mt-6">¿Qué tipo de negocio tienes?</h2>
@@ -216,7 +216,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-2">
             <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">BarberApp</span>
+            <span className="text-xl font-bold">Turnapp</span>
           </div>
           <p className="text-gray-500 text-sm">14 días gratis · Sin tarjeta de crédito</p>
         </div>

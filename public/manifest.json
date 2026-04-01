@@ -1,7 +1,7 @@
 {
-    "name": "BarberApp — Reservas",
-    "short_name": "BarberApp",
-    "description": "Reserva tu turno en tu barbería o peluquería favorita",
+    "name": "Turnapp",
+    "short_name": "Turnapp",
+    "description": "Reservas online para tu negocio de belleza y bienestar",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#f9fafb",

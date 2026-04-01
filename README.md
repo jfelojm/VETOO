@@ -1,7 +1,7 @@
-# BarberApp — Guía de instalación y configuración
+# Turnapp — Guía de instalación y configuración
 
 ## ¿Qué es esto?
-Este es el código fuente completo de tu plataforma de reservas para barberías.
+Este es el código fuente completo de Turnapp, plataforma de reservas online para negocios de belleza y bienestar.
 Sigue esta guía paso a paso. Cada sección indica si la hace **tú** o si está **lista en el código**.
 
 ---
@@ -101,7 +101,7 @@ npm install
 npm run dev
 ```
 4. Abre tu navegador en: **http://localhost:3000**
-5. ¡Deberías ver la landing page de BarberApp!
+5. ¡Deberías ver la landing page de Turnapp!
 
 ---
 

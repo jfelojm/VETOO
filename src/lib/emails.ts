@@ -3,7 +3,7 @@ import type { Reserva } from '@/types'
 import { formatFecha, nombreClienteReservaRow } from '@/lib/utils'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM_EMAIL || 'reservas@barberapp.com'
+const FROM = process.env.RESEND_FROM_EMAIL || 'reservas@turnapp.com'
 
 // Email de confirmación al cliente
 export async function emailConfirmacionCliente(reserva: Reserva) {
@@ -120,11 +120,11 @@ export async function emailInvitacionStaff({
   await resend.emails.send({
     from: FROM,
     to: email,
-    subject: `Te invitaron a unirte a ${negocioNombre} en BarberApp`,
+    subject: `Te invitaron a unirte a ${negocioNombre} en Turnapp`,
     html: `
       <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a1a;">Hola ${nombre},</h2>
-        <p>Te han invitado a unirte al equipo de <strong>${negocioNombre}</strong> en BarberApp.</p>
+        <p>Te han invitado a unirte al equipo de <strong>${negocioNombre}</strong> en Turnapp.</p>
         <p>Haz clic en el botón para crear tu cuenta y acceder a tu panel:</p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${linkInvitacion}"
