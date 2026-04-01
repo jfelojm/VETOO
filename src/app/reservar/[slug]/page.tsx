@@ -5,15 +5,16 @@ import BookingFlow from '@/components/booking/BookingFlow'
 import { Scissors, MapPin, Clock, Instagram } from 'lucide-react'
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export async function generateMetadata({ params }: Props) {
+  const { slug } = await params
   const supabase = createClient()
   const { data } = await supabase
     .from('negocios')
     .select('nombre, descripcion, ciudad')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single()
 
   if (!data) return { title: 'Barbería no encontrada' }
@@ -25,6 +26,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function ReservarPage({ params }: Props) {
+  const { slug } = await params
   const supabase = createClient()
 
   // Cargar negocio con barberos y servicios
@@ -35,7 +37,7 @@ export default async function ReservarPage({ params }: Props) {
       barberos(id, nombre, foto_url, bio, activo, orden),
       servicios(id, nombre, descripcion, duracion, precio, activo, orden)
     `)
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .eq('activo', true)
     .single()
 
