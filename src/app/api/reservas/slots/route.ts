@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { addDays, addMinutes } from 'date-fns'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
+import type { BloqueoSlotRow, ReservaSlotRow } from '@/lib/reservas-capacidad'
+import { slotDisponibleSinPreferencia, solapa } from '@/lib/reservas-capacidad'
 
 /** Zona del negocio: en Vercel el servidor está en UTC; el horario JSON es “reloj local” del salón. */
 const TZ_NEGOCIO = process.env.NEGOCIO_TIMEZONE || 'America/Guayaquil'
@@ -84,10 +86,18 @@ export async function GET(req: NextRequest) {
 
   const { data: bloqueos } = await supabase
     .from('bloqueos')
-    .select('*')
+    .select('barbero_id, fecha_desde, fecha_hasta')
     .eq('negocio_id', negocioId)
     .lt('fecha_desde', rangoFinExclusivo.toISOString())
     .gt('fecha_hasta', rangoInicio.toISOString())
+
+  const { data: barberosRows } = await supabase
+    .from('barberos')
+    .select('id')
+    .eq('negocio_id', negocioId)
+    .eq('activo', true)
+
+  const barberIdsActivos = (barberosRows ?? []).map((b: { id: string }) => b.id)
 
   const slots = []
   let cursor = new Date(inicioJornada)
@@ -96,27 +106,44 @@ export async function GET(req: NextRequest) {
     const slotFin = addMinutes(cursor, duracion)
     const horaStr = formatInTimeZone(cursor, TZ_NEGOCIO, 'HH:mm')
 
-    const conflictoReserva = (reservas ?? []).find((r: any) => {
-      if (barberoId && r.barbero_id !== barberoId) return false
-      const rInicio = new Date(r.fecha_hora)
-      const rFin    = addMinutes(rInicio, r.duracion)
-      return cursor < rFin && slotFin > rInicio
-    })
+    let disponible: boolean
+    let motivo: 'bloqueo' | 'ocupado' | undefined
 
-    const conflictoBloqueo = (bloqueos ?? []).find((b: any) => {
-      if (barberoId && b.barbero_id && b.barbero_id !== barberoId) return false
-      const bInicio = new Date(b.fecha_desde)
-      const bFin    = new Date(b.fecha_hasta)
-      return cursor < bFin && slotFin > bInicio
-    })
+    if (barberoId) {
+      const conflictoReserva = (reservas ?? []).find((r: any) => {
+        if (r.barbero_id !== barberoId) return false
+        const rInicio = new Date(r.fecha_hora)
+        const rFin    = addMinutes(rInicio, r.duracion)
+        return solapa(cursor, slotFin, rInicio, rFin)
+      })
 
-    const disponible = !conflictoReserva && !conflictoBloqueo
+      const conflictoBloqueo = (bloqueos ?? []).find((b: any) => {
+        if (b.barbero_id && b.barbero_id !== barberoId) return false
+        const bInicio = new Date(b.fecha_desde)
+        const bFin    = new Date(b.fecha_hasta)
+        return solapa(cursor, slotFin, bInicio, bFin)
+      })
+
+      disponible = !conflictoReserva && !conflictoBloqueo
+      if (!disponible) motivo = conflictoBloqueo ? 'bloqueo' : 'ocupado'
+    } else {
+      const r = slotDisponibleSinPreferencia(
+        cursor,
+        slotFin,
+        barberIdsActivos,
+        (reservas ?? []) as ReservaSlotRow[],
+        (bloqueos ?? []) as BloqueoSlotRow[]
+      )
+      disponible = r.disponible
+      motivo = r.motivo
+    }
+
     const slot: { hora: string; disponible: boolean; motivo?: 'bloqueo' | 'ocupado' } = {
       hora: horaStr,
       disponible,
     }
-    if (conDetalle && !disponible) {
-      slot.motivo = conflictoBloqueo ? 'bloqueo' : 'ocupado'
+    if (conDetalle && !disponible && motivo) {
+      slot.motivo = motivo
     }
     slots.push(slot)
 
