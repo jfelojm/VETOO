@@ -6,6 +6,7 @@ import { format, parseISO, startOfDay, endOfDay, addDays, subDays } from 'date-f
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Clock, User, Scissors, Phone, X, CheckCircle } from 'lucide-react'
+import { nombreClienteReservaRow } from '@/lib/utils'
 
 interface Reserva {
   id: string
@@ -13,6 +14,7 @@ interface Reserva {
   duracion: number
   estado: string
   notas_cliente: string | null
+  cliente_nombre_snapshot?: string | null
   barbero: { nombre: string } | null
   servicio: { nombre: string; duracion: number } | null
   cliente: { nombre: string; telefono: string; email: string | null } | null
@@ -137,7 +139,7 @@ export default function ReservasPage() {
                 {/* Info principal */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="font-medium text-gray-900">{r.cliente?.nombre ?? 'Sin nombre'}</p>
+                    <p className="font-medium text-gray-900">{nombreClienteReservaRow(r)}</p>
                     <span className={`badge ${ESTADOS[r.estado]?.clase ?? 'badge-gray'}`}>
                       {ESTADOS[r.estado]?.label ?? r.estado}
                     </span>

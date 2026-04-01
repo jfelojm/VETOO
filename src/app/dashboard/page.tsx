@@ -6,6 +6,7 @@ import { Calendar, Clock, Plus, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { nombreClienteReservaRow } from '@/lib/utils'
 
 const ESTADO_BADGE: Record<string, string> = {
   pendiente:  'badge badge-amber',
@@ -122,10 +123,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700 shrink-0">
-                    {r.cliente?.nombre?.charAt(0).toUpperCase()}
+                    {nombreClienteReservaRow(r).charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium text-sm text-gray-900 truncate">{r.cliente?.nombre}</p>
+                    <p className="font-medium text-sm text-gray-900 truncate">{nombreClienteReservaRow(r)}</p>
                     <p className="text-xs text-gray-400">{r.cliente?.telefono}</p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 import type { Reserva } from '@/types'
-import { formatFecha } from '@/lib/utils'
+import { formatFecha, nombreClienteReservaRow } from '@/lib/utils'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL || 'reservas@barberapp.com'
@@ -9,6 +9,7 @@ const FROM = process.env.RESEND_FROM_EMAIL || 'reservas@barberapp.com'
 export async function emailConfirmacionCliente(reserva: Reserva) {
   const negocio = reserva.negocio!
   const fecha = formatFecha(reserva.fecha_hora)
+  const nombreCli = nombreClienteReservaRow(reserva)
 
   await resend.emails.send({
     from: FROM,
@@ -17,7 +18,7 @@ export async function emailConfirmacionCliente(reserva: Reserva) {
     html: `
       <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a1a;">Tu reserva está confirmada</h2>
-        <p>Hola <strong>${reserva.cliente!.nombre}</strong>,</p>
+        <p>Hola <strong>${nombreCli}</strong>,</p>
         <p>Tu reserva en <strong>${negocio.nombre}</strong> ha sido confirmada.</p>
 
         <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 20px 0;">
@@ -47,17 +48,18 @@ export async function emailConfirmacionCliente(reserva: Reserva) {
 export async function emailNuevaReservaNegocio(reserva: Reserva) {
   const negocio = reserva.negocio!
   const fecha = formatFecha(reserva.fecha_hora)
+  const nombreCli = nombreClienteReservaRow(reserva)
 
   await resend.emails.send({
     from: FROM,
     to: negocio.email,
-    subject: `Nueva reserva — ${reserva.cliente!.nombre} — ${fecha}`,
+    subject: `Nueva reserva — ${nombreCli} — ${fecha}`,
     html: `
       <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a1a;">Nueva reserva recibida</h2>
 
         <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p style="margin: 4px 0;"><strong>Cliente:</strong> ${reserva.cliente!.nombre}</p>
+          <p style="margin: 4px 0;"><strong>Cliente:</strong> ${nombreCli}</p>
           <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${reserva.cliente!.telefono}</p>
           ${reserva.cliente!.email ? `<p style="margin: 4px 0;"><strong>Email:</strong> ${reserva.cliente!.email}</p>` : ''}
           <p style="margin: 4px 0;"><strong>Fecha y hora:</strong> ${fecha}</p>
@@ -79,6 +81,7 @@ export async function emailCancelacion(reserva: Reserva, canceladaPor: 'cliente'
   const negocio = reserva.negocio!
   const fecha = formatFecha(reserva.fecha_hora)
   const clienteEmail = reserva.cliente!.email
+  const nombreCli = nombreClienteReservaRow(reserva)
 
   if (clienteEmail) {
     await resend.emails.send({
@@ -88,7 +91,7 @@ export async function emailCancelacion(reserva: Reserva, canceladaPor: 'cliente'
       html: `
         <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
           <h2 style="color: #1a1a1a;">Tu reserva fue cancelada</h2>
-          <p>Hola ${reserva.cliente!.nombre},</p>
+          <p>Hola ${nombreCli},</p>
           <p>
             ${canceladaPor === 'negocio'
               ? `${negocio.nombre} ha cancelado tu reserva del ${fecha}.`

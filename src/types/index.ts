@@ -118,6 +118,8 @@ export interface Reserva {
   notas_interno: string | null
   politica_aceptada: boolean
   politica_texto_snapshot: string | null
+  /** Nombre al crear la reserva (si null, usar relación cliente) */
+  cliente_nombre_snapshot?: string | null
   // Relaciones (cuando se hace join)
   barbero?:  Barbero
   servicio?: Servicio

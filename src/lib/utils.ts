@@ -19,6 +19,16 @@ export function formatHora(fecha: string | Date) {
   return format(typeof fecha === 'string' ? parseISO(fecha) : fecha, 'HH:mm', { locale: es })
 }
 
+/** Nombre mostrado en listados de reserva (prioriza lo escrito en esa cita vs. ficha cliente por teléfono). */
+export function nombreClienteReservaRow(r: {
+  cliente_nombre_snapshot?: string | null
+  cliente?: { nombre?: string | null } | null
+}): string {
+  const s = r.cliente_nombre_snapshot?.trim()
+  if (s) return s
+  return r.cliente?.nombre?.trim() || 'Sin nombre'
+}
+
 // Nombre del día en español
 const DIAS_SEMANA = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'] as const
 type DiaSemana = typeof DIAS_SEMANA[number]

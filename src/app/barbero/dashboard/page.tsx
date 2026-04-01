@@ -28,7 +28,7 @@ import {
 import type { SlotDisponible, Servicio } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
 import GrillaHorarios from '@/components/calendario/GrillaHorarios'
-import { formatPrecio } from '@/lib/utils'
+import { formatPrecio, nombreClienteReservaRow } from '@/lib/utils'
 
 interface Reserva {
   id: string
@@ -36,6 +36,7 @@ interface Reserva {
   duracion: number
   estado: string
   notas_cliente: string | null
+  cliente_nombre_snapshot?: string | null
   servicio: { nombre: string } | null
   cliente: { nombre: string; telefono: string } | null
 }
@@ -773,7 +774,7 @@ export default function BarberoDashboard() {
                       <p className="text-xs text-gray-400">{r.duracion} min</p>
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900">{r.cliente?.nombre}</p>
+                      <p className="font-medium text-gray-900">{nombreClienteReservaRow(r)}</p>
                       <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
                         {r.cliente?.telefono && (
                           <span className="flex items-center gap-1">

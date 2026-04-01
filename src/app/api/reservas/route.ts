@@ -148,19 +148,22 @@ export async function POST(req: NextRequest) {
       clienteId = nuevoCliente.id
     }
 
+    const nombreReserva = data.nombre.trim()
+
     const { data: reserva, error: errReserva } = await supabase
       .from('reservas')
       .insert({
-        negocio_id:              data.negocio_id,
-        barbero_id:              barberoInsert,
-        servicio_id:             data.servicio_id ?? null,
-        cliente_id:              clienteId,
-        fecha_hora:              data.fecha_hora,
-        duracion:                duracion,
-        estado:                  'confirmada',
-        notas_cliente:           data.notas_cliente ?? null,
-        politica_aceptada:       data.politica_aceptada,
-        politica_texto_snapshot: negocio.cancelacion_mensaje,
+        negocio_id:               data.negocio_id,
+        barbero_id:               barberoInsert,
+        servicio_id:              data.servicio_id ?? null,
+        cliente_id:               clienteId,
+        fecha_hora:               data.fecha_hora,
+        duracion:                 duracion,
+        estado:                   'confirmada',
+        notas_cliente:            data.notas_cliente ?? null,
+        politica_aceptada:        data.politica_aceptada,
+        politica_texto_snapshot:  negocio.cancelacion_mensaje,
+        cliente_nombre_snapshot:  nombreReserva,
       })
       .select('id, estado').single()
 
@@ -194,12 +197,12 @@ export async function POST(req: NextRequest) {
         await resend.emails.send({
           from: 'onboarding@resend.dev',
           to: negocio.email,
-          subject: `Nueva reserva — ${cliente?.nombre}`,
+          subject: `Nueva reserva — ${nombreReserva}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
             <h2 style="color:#e05f10;">Nueva reserva recibida</h2>
             <p>Tienes una nueva reserva en <strong>${negocio.nombre}</strong>.</p>
             <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
-              <p style="margin:4px 0;"><strong>Cliente:</strong> ${cliente?.nombre}</p>
+              <p style="margin:4px 0;"><strong>Cliente:</strong> ${nombreReserva}</p>
               <p style="margin:4px 0;"><strong>Teléfono:</strong> ${cliente?.telefono}</p>
               ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
               ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}
@@ -216,7 +219,7 @@ export async function POST(req: NextRequest) {
           subject: `Reserva confirmada en ${negocio.nombre}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
             <h2 style="color:#e05f10;">¡Reserva confirmada!</h2>
-            <p>Hola <strong>${cliente.nombre}</strong>, tu reserva en <strong>${negocio.nombre}</strong> fue confirmada.</p>
+            <p>Hola <strong>${nombreReserva}</strong>, tu reserva en <strong>${negocio.nombre}</strong> fue confirmada.</p>
             <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
               ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
               ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}

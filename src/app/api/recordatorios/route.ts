@@ -48,6 +48,10 @@ export async function GET(req: NextRequest) {
     const negocio = reserva.negocio as any
     const barbero = reserva.barbero as any
     const servicio = reserva.servicio as any
+    const nombreCliente =
+      (reserva as { cliente_nombre_snapshot?: string | null }).cliente_nombre_snapshot?.trim() ||
+      cliente?.nombre ||
+      'Cliente'
 
     if (!cliente?.email) continue
 
@@ -66,7 +70,7 @@ export async function GET(req: NextRequest) {
       subject: `Recordatorio: tu turno ${texto} en ${negocio?.nombre}`,
       html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
         <h2 style="color:#e05f10;">Recordatorio de tu reserva</h2>
-        <p>Hola <strong>${cliente.nombre}</strong>, te recordamos que tienes un turno <strong>${texto}</strong>.</p>
+        <p>Hola <strong>${nombreCliente}</strong>, te recordamos que tienes un turno <strong>${texto}</strong>.</p>
         <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
           <p style="margin:4px 0;"><strong>Negocio:</strong> ${negocio?.nombre}</p>
           ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${servicio.nombre}</p>` : ''}
