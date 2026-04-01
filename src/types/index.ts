@@ -53,6 +53,7 @@ export interface Negocio {
   trial_expira_at:               string | null
   activo:       boolean
   owner_id:     string
+  tipo_negocio?: string | null
 }
 
 export interface Barbero {

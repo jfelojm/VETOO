@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ETIQUETA_STAFF, getTipoConfig } from '@/lib/negocio-tipo'
 import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap, Lock } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard',           icon: Calendar,  label: 'Agenda' },
-  { href: '/dashboard/barberos', icon: Users, label: 'Staff' },
+  { href: '/dashboard/barberos', icon: Users, label: ETIQUETA_STAFF },
   { href: '/dashboard/bloqueos',  icon: Lock,      label: 'Bloqueos' },
   { href: '/dashboard/servicios', icon: Scissors,  label: 'Servicios' },
   { href: '/dashboard/reservas',  icon: Calendar,  label: 'Reservas' },
@@ -30,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!user) { router.replace('/auth/login'); return }
       const { data } = await supabase
         .from('negocios')
-        .select('id, nombre, slug, plan, trial_expira_at')
+        .select('id, nombre, slug, plan, trial_expira_at, tipo_negocio')
         .eq('owner_id', user.id)
         .maybeSingle()
       if (!data) {
@@ -66,6 +67,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.location.replace('/auth/login')
   }
 
+  const tipoCfg = getTipoConfig(negocio?.tipo_negocio)
+  const TipoSidebarIcon = tipoCfg.Icon
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col fixed h-full z-40">
@@ -75,6 +79,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-bold text-sm">BarberApp</span>
           </div>
           <p className="text-xs text-gray-400 mt-1 truncate">{negocio?.nombre}</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-brand-700 bg-brand-50 rounded-lg px-2 py-1 border border-brand-100">
+            <TipoSidebarIcon className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate font-medium">{tipoCfg.label}</span>
+          </div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
           {NAV.map(item => (

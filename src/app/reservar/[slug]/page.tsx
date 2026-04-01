@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { planActivo } from '@/lib/utils'
+import { getTipoConfig } from '@/lib/negocio-tipo'
 import BookingFlow from '@/components/booking/BookingFlow'
 import { Scissors, MapPin, Clock, Instagram } from 'lucide-react'
 
@@ -13,15 +14,18 @@ export async function generateMetadata({ params }: Props) {
   const supabase = createClient()
   const { data } = await supabase
     .from('negocios')
-    .select('nombre, descripcion, ciudad')
+    .select('nombre, descripcion, ciudad, tipo_negocio')
     .eq('slug', slug)
     .single()
 
-  if (!data) return { title: 'Barbería no encontrada' }
+  if (!data) return { title: 'Negocio no encontrado' }
 
+  const tipo = getTipoConfig(data.tipo_negocio)
   return {
     title: `Reservar en ${data.nombre}`,
-    description: data.descripcion ?? `Reserva tu turno en ${data.nombre}, ${data.ciudad}`,
+    description:
+      data.descripcion ??
+      `Reserva tu turno en ${data.nombre} (${tipo.label}), ${data.ciudad}`,
   }
 }
 
@@ -69,6 +73,8 @@ export default async function ReservarPage({ params }: Props) {
 
   const barberos = (negocio.barberos as any[]).filter((b: any) => b.activo).sort((a: any, b: any) => a.orden - b.orden)
   const servicios = (negocio.servicios as any[]).filter((s: any) => s.activo).sort((a: any, b: any) => a.orden - b.orden)
+  const tipoCfg = getTipoConfig((negocio as { tipo_negocio?: string | null }).tipo_negocio)
+  const TipoHeaderIcon = tipoCfg.Icon
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -82,11 +88,17 @@ export default async function ReservarPage({ params }: Props) {
               {negocio.logo_url ? (
                 <img src={negocio.logo_url} alt={negocio.nombre} className="w-16 h-16 rounded-2xl object-cover" />
               ) : (
-                <Scissors className="w-8 h-8 text-brand-600" />
+                <TipoHeaderIcon className="w-8 h-8 text-brand-600" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900">{negocio.nombre}</h1>
+              <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                <h1 className="text-xl font-bold text-gray-900">{negocio.nombre}</h1>
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-800 bg-brand-50 border border-brand-100 rounded-full px-2.5 py-0.5">
+                  <TipoHeaderIcon className="w-3 h-3" />
+                  {tipoCfg.label}
+                </span>
+              </div>
               {negocio.descripcion && (
                 <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{negocio.descripcion}</p>
               )}
