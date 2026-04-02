@@ -10,23 +10,26 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export const PLANES = {
   basic: {
     nombre: 'Básico',
-    precio: 20,
+    precio: 19,
     priceId: process.env.STRIPE_PRICE_BASIC!,
-    descripcion: 'Hasta 2 barberos, reservas ilimitadas, notificaciones por email',
+    descripcion:
+      '2 staff, reservas online con link, email, recordatorios 24h y 2h, agenda básica, política de cancelación',
     limites: { barberos: 2, servicios: 10 },
   },
   pro: {
     nombre: 'Pro',
-    precio: 40,
+    precio: 39,
     priceId: process.env.STRIPE_PRICE_PRO!,
-    descripcion: 'Hasta 5 barberos, reportes, recordatorios automáticos',
-    limites: { barberos: 5, servicios: 25 },
+    descripcion:
+      'Staff ilimitado, dashboard avanzado, lista negra no-shows, alertas clientes inactivos, historial por cliente, página de reservas con marca',
+    limites: { barberos: 999, servicios: 999 },
   },
+  /** Contratos a medida; contacto comercial. Si usas Stripe para un cliente premium, define STRIPE_PRICE_PREMIUM. */
   premium: {
     nombre: 'Premium',
-    precio: 80,
-    priceId: process.env.STRIPE_PRICE_PREMIUM!,
-    descripcion: 'Barberos ilimitados, WhatsApp, soporte prioritario',
+    precio: 0,
+    priceId: process.env.STRIPE_PRICE_PREMIUM ?? '',
+    descripcion: 'Servicio personalizado — consultar disponibilidad y precio',
     limites: { barberos: 999, servicios: 999 },
   },
 } as const

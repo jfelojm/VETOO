@@ -64,10 +64,10 @@ Sigue esta guía paso a paso. Cada sección indica si la hace **tú** o si está
 4. Copia:
    - `Publishable key` → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
    - `Secret key` → `STRIPE_SECRET_KEY`
-5. Ve a **Products → Add product** y crea 3 productos:
-   - "Plan Básico" → precio recurrente $20/mes → copia el `price_id` → `STRIPE_PRICE_BASIC`
-   - "Plan Pro" → precio recurrente $40/mes → copia el `price_id` → `STRIPE_PRICE_PRO`
-   - "Plan Premium" → precio recurrente $80/mes → copia el `price_id` → `STRIPE_PRICE_PREMIUM`
+5. Ve a **Products → Add product** y crea al menos 2 productos de suscripción (precios alineados a la web: Básico $19+IVA, Pro $39+IVA):
+   - "Plan Básico" → precio recurrente mensual → copia el `price_id` → `STRIPE_PRICE_BASIC`
+   - "Plan Pro" → precio recurrente mensual → copia el `price_id` → `STRIPE_PRICE_PRO`
+   - *(Opcional)* Si vendes Premium por Stripe, crea un producto y define `STRIPE_PRICE_PREMIUM`. En la landing, Premium se ofrece como plan personalizado por contacto.
 
 ### 2.5 Resend (emails transaccionales)
 1. Ve a https://resend.com y crea una cuenta gratis (3,000 emails/mes gratis)
