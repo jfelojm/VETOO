@@ -18,13 +18,27 @@ interface Props {
   servicios: Servicio[]
 }
 
-const clienteSchema = z.object({
-  nombre:   z.string().min(2, 'Ingresa tu nombre completo'),
-  telefono: z.string().min(7, 'Teléfono inválido'),
-  email:    z.string().email('Email inválido').optional().or(z.literal('')),
-  notas:    z.string().optional(),
-  politica: z.literal(true, { errorMap: () => ({ message: 'Debes aceptar la política' }) }),
-})
+function telDigitos(s: string) {
+  return s.replace(/\D/g, '').length
+}
+
+const clienteSchema = z
+  .object({
+    nombre:   z.string().min(2, 'Ingresa tu nombre completo'),
+    telefono: z.string().optional().default(''),
+    email:    z.union([z.string().email('Email inválido'), z.literal('')]).optional().default(''),
+    notas:    z.string().optional(),
+    politica: z.literal(true, { errorMap: () => ({ message: 'Debes aceptar la política' }) }),
+  })
+  .refine(d => telDigitos(d.telefono ?? '') >= 7 || (d.email ?? '').trim().length > 0, {
+    message: 'Indica un teléfono válido (mín. 7 dígitos) o un correo electrónico',
+    path:    ['telefono'],
+  })
+  .refine(d => {
+    const em = (d.email ?? '').trim()
+    if (!em) return true
+    return z.string().email().safeParse(em).success
+  }, { message: 'El correo no es válido', path: ['email'] })
 type ClienteData = z.infer<typeof clienteSchema>
 
 type Paso = 'servicio' | 'barbero' | 'fecha' | 'hora' | 'datos' | 'confirmado'
@@ -112,8 +126,8 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
       barbero_id:        barberoId || null,
       servicio_id:       servicioId || null,
       nombre:            data.nombre,
-      telefono:          data.telefono,
-      email:             data.email || null,
+      telefono:          (data.telefono ?? '').trim(),
+      email:             (data.email ?? '').trim() || null,
       fecha_hora:        fechaUTC.toISOString(),
       notas_cliente:     data.notas || null,
       politica_aceptada: true,
@@ -348,13 +362,16 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
               <input {...register('nombre')} className="input" placeholder="Tu nombre" />
               {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
             </div>
+            <p className="text-xs text-gray-500 -mt-2 mb-2">
+              Debes indicar al menos uno: teléfono (mín. 7 dígitos) o correo electrónico.
+            </p>
             <div>
-              <label className="label">Teléfono / WhatsApp *</label>
+              <label className="label">Teléfono / WhatsApp</label>
               <input {...register('telefono')} className="input" placeholder="+593 99 123 4567" type="tel" />
               {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono.message}</p>}
             </div>
             <div>
-              <label className="label">Email (opcional, para confirmación)</label>
+              <label className="label">Correo electrónico</label>
               <input {...register('email')} className="input" placeholder="tu@email.com" type="email" />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
             </div>

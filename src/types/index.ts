@@ -46,6 +46,10 @@ export interface Negocio {
   cancelacion_horas_minimo:      number
   cancelacion_max_por_mes:       number
   cancelacion_mensaje:           string | null
+  /** Recordatorios automáticos (~24h y ~2h antes) por email al cliente */
+  recordatorio_email_cliente?:   boolean
+  /** Recordatorios por WhatsApp/teléfono vía webhook (ver NOTIFICACIONES_WHATSAPP_WEBHOOK_URL) */
+  recordatorio_whatsapp_cliente?: boolean
   stripe_customer_id:            string | null
   stripe_subscription_id:        string | null
   plan:                          Plan
@@ -63,6 +67,7 @@ export interface Barbero {
   nombre:     string
   foto_url:   string | null
   bio:        string | null
+  email:      string | null
   activo:     boolean
   orden:      number
 }
@@ -94,7 +99,7 @@ export interface Cliente {
   created_at:  string
   negocio_id:  string
   nombre:      string
-  telefono:    string
+  telefono:    string | null
   email:       string | null
   cancelaciones_mes: number
   bloqueado:   boolean
@@ -131,7 +136,7 @@ export interface Reserva {
 // Para el formulario de reserva (lo que envía el cliente)
 export interface FormReserva {
   nombre:      string
-  telefono:    string
+  telefono?:   string
   email?:      string
   barbero_id:  string
   servicio_id: string

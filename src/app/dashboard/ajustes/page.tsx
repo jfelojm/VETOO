@@ -39,6 +39,8 @@ const schema = z.object({
   cancelacion_horas_minimo:   z.coerce.number().min(0),
   cancelacion_max_por_mes:    z.coerce.number().min(1),
   cancelacion_mensaje:        z.string().optional(),
+  recordatorio_email_cliente:     z.coerce.boolean(),
+  recordatorio_whatsapp_cliente:  z.coerce.boolean(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -95,6 +97,8 @@ export default function AjustesPage() {
           cancelacion_horas_minimo:   data.cancelacion_horas_minimo,
           cancelacion_max_por_mes:    data.cancelacion_max_por_mes,
           cancelacion_mensaje:        data.cancelacion_mensaje ?? '',
+          recordatorio_email_cliente:     data.recordatorio_email_cliente !== false,
+          recordatorio_whatsapp_cliente:  data.recordatorio_whatsapp_cliente === true,
         })
       }
       setLoading(false)
@@ -285,6 +289,38 @@ export default function AjustesPage() {
                 <input {...register('whatsapp')} className="input" placeholder="+593 99 123 4567" />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Recordatorios a clientes (cron ~24h y ~2h antes) */}
+        <div className="card">
+          <h2 className="font-semibold text-gray-900 mb-1">Recordatorios a clientes</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            El sistema envía avisos unas 24 horas y unas 2 horas antes del turno. El correo usa Resend; WhatsApp o SMS
+            requiere configurar la variable <code className="text-gray-700">NOTIFICACIONES_WHATSAPP_WEBHOOK_URL</code> en
+            el servidor (POST JSON con <code className="text-gray-700">telefono</code> y <code className="text-gray-700">mensaje</code>).
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('recordatorio_email_cliente')}
+                className="mt-0.5 w-4 h-4 accent-brand-600 shrink-0"
+              />
+              <span className="text-sm text-gray-700">
+                Enviar recordatorio por <strong>correo</strong> cuando el cliente tenga email
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('recordatorio_whatsapp_cliente')}
+                className="mt-0.5 w-4 h-4 accent-brand-600 shrink-0"
+              />
+              <span className="text-sm text-gray-700">
+                Enviar recordatorio por <strong>WhatsApp / teléfono</strong> cuando el cliente tenga número (vía webhook)
+              </span>
+            </label>
           </div>
         </div>
 

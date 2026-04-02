@@ -11,17 +11,35 @@ import {
 
 const TZ_NEGOCIO = process.env.NEGOCIO_TIMEZONE || 'America/Guayaquil'
 
-const schema = z.object({
-  negocio_id:        z.string().uuid(),
-  barbero_id:        z.string().uuid().nullable().optional(),
-  servicio_id:       z.string().uuid().nullable().optional(),
-  nombre:            z.string().min(2),
-  telefono:          z.string().min(7),
-  email:             z.string().email().nullable().optional(),
-  fecha_hora:        z.string().datetime(),
-  notas_cliente:     z.string().nullable().optional(),
-  politica_aceptada: z.boolean(),
-})
+function soloDigitosTel(s: string) {
+  return (s ?? '').replace(/\D/g, '')
+}
+
+function telefonoValido(s: string | undefined) {
+  return soloDigitosTel(s ?? '').length >= 7
+}
+
+function emailValido(s: string | null | undefined) {
+  const t = (s ?? '').trim()
+  return t.length > 0 && z.string().email().safeParse(t).success
+}
+
+const schema = z
+  .object({
+    negocio_id:        z.string().uuid(),
+    barbero_id:        z.string().uuid().nullable().optional(),
+    servicio_id:       z.string().uuid().nullable().optional(),
+    nombre:            z.string().min(2),
+    telefono:          z.string().optional().default(''),
+    email:             z.union([z.string().email(), z.literal('')]).nullable().optional(),
+    fecha_hora:        z.string().datetime(),
+    notas_cliente:     z.string().nullable().optional(),
+    politica_aceptada: z.boolean(),
+  })
+  .refine(d => telefonoValido(d.telefono) || emailValido(d.email), {
+    message: 'Indica un teléfono válido (mín. 7 dígitos) o un correo electrónico válido',
+    path:    ['telefono'],
+  })
 
 export async function POST(req: NextRequest) {
   try {
@@ -125,23 +143,55 @@ export async function POST(req: NextRequest) {
       barberoInsert = data.barbero_id
     }
 
+    const telTrim = (data.telefono ?? '').trim()
+    const telefonoInsert = telefonoValido(telTrim) ? telTrim : null
+    const emailTrim = (data.email ?? '').trim()
+    const emailInsert = emailValido(emailTrim) ? emailTrim.toLowerCase() : null
+
     let clienteId: string
-    const { data: clienteExistente } = await supabase
-      .from('clientes').select('id, bloqueado')
-      .eq('negocio_id', data.negocio_id)
-      .eq('telefono', data.telefono)
-      .single()
+    let clienteExistente: { id: string; bloqueado: boolean } | null = null
+
+    if (telefonoInsert) {
+      const { data: porTel } = await supabase
+        .from('clientes')
+        .select('id, bloqueado')
+        .eq('negocio_id', data.negocio_id)
+        .eq('telefono', telefonoInsert)
+        .maybeSingle()
+      if (porTel) clienteExistente = porTel
+    }
+    if (!clienteExistente && emailInsert) {
+      const { data: porEmail } = await supabase
+        .from('clientes')
+        .select('id, bloqueado')
+        .eq('negocio_id', data.negocio_id)
+        .eq('email', emailInsert)
+        .maybeSingle()
+      if (porEmail) clienteExistente = porEmail
+    }
 
     if (clienteExistente) {
       if (clienteExistente.bloqueado) {
         return NextResponse.json({ error: 'Tu cuenta está bloqueada.' }, { status: 403 })
       }
       clienteId = clienteExistente.id
+      const patch: { nombre: string; telefono?: string | null; email?: string | null } = {
+        nombre: data.nombre,
+      }
+      if (telefonoValido(telTrim)) patch.telefono = telTrim
+      if (emailValido(emailTrim)) patch.email = emailTrim.toLowerCase()
+      await supabase.from('clientes').update(patch).eq('id', clienteId)
     } else {
       const { data: nuevoCliente, error: errCliente } = await supabase
         .from('clientes')
-        .insert({ negocio_id: data.negocio_id, nombre: data.nombre, telefono: data.telefono, email: data.email ?? null })
-        .select('id').single()
+        .insert({
+          negocio_id: data.negocio_id,
+          nombre:     data.nombre,
+          telefono:   telefonoInsert,
+          email:      emailInsert,
+        })
+        .select('id')
+        .single()
       if (errCliente || !nuevoCliente) {
         return NextResponse.json({ error: 'Error al registrar cliente' }, { status: 500 })
       }
@@ -180,7 +230,7 @@ export async function POST(req: NextRequest) {
         .from('clientes').select('nombre, telefono, email').eq('id', clienteId).single()
       const { data: barbero } = await supabase
         .from('barberos')
-        .select('nombre')
+        .select('nombre, email')
         .eq('id', barberoInsert)
         .single()
       const { data: servicio } = data.servicio_id
@@ -193,6 +243,9 @@ export async function POST(req: NextRequest) {
         timeZone: 'America/Guayaquil'
       })
 
+      const telTxt = cliente?.telefono ? String(cliente.telefono) : '—'
+      const mailTxt = cliente?.email ? String(cliente.email) : '—'
+
       if (negocio.email) {
         await resend.emails.send({
           from: 'onboarding@resend.dev',
@@ -203,9 +256,30 @@ export async function POST(req: NextRequest) {
             <p>Tienes una nueva reserva en <strong>${negocio.nombre}</strong>.</p>
             <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
               <p style="margin:4px 0;"><strong>Cliente:</strong> ${nombreReserva}</p>
-              <p style="margin:4px 0;"><strong>Teléfono:</strong> ${cliente?.telefono}</p>
+              <p style="margin:4px 0;"><strong>Teléfono:</strong> ${telTxt}</p>
+              <p style="margin:4px 0;"><strong>Email:</strong> ${mailTxt}</p>
               ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
-              ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}
+              ${barbero ? `<p style="margin:4px 0;"><strong>Profesional:</strong> ${(barbero as any).nombre}</p>` : ''}
+              <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
+            </div>
+          </div>`,
+        })
+      }
+
+      const barberoEmail = (barbero as { nombre?: string; email?: string | null } | null)?.email?.trim()
+      if (barberoEmail) {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev',
+          to: barberoEmail,
+          subject: `Nueva cita en tu agenda — ${negocio.nombre}`,
+          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+            <h2 style="color:#e05f10;">Tienes una nueva reserva</h2>
+            <p>Hola <strong>${(barbero as any).nombre}</strong>, se agendó un turno contigo en <strong>${negocio.nombre}</strong>.</p>
+            <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:4px 0;"><strong>Cliente:</strong> ${nombreReserva}</p>
+              <p style="margin:4px 0;"><strong>Teléfono:</strong> ${telTxt}</p>
+              <p style="margin:4px 0;"><strong>Email:</strong> ${mailTxt}</p>
+              ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
               <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
             </div>
           </div>`,
@@ -240,7 +314,8 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+      const msg = err.issues[0]?.message ?? 'Datos inválidos'
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
     console.error('Error inesperado:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
