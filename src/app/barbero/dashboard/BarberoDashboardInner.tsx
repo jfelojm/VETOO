@@ -10,10 +10,7 @@ import {
   endOfDay,
   startOfMonth,
   endOfMonth,
-  startOfWeek,
-  endOfWeek,
   addMinutes,
-  isSameDay,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -30,9 +27,6 @@ import {
   UserPlus,
   ChevronLeft,
   Trash2,
-  CalendarDays,
-  CalendarRange,
-  LayoutGrid,
 } from 'lucide-react'
 import type { SlotDisponible, Servicio } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
@@ -63,20 +57,6 @@ type Panel = null | 'bloquear' | 'nueva-reserva'
 
 const DIAS_KEY = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as const
 
-function agruparReservasPorDia(rs: Reserva[]) {
-  const ordenados = [...rs].sort(
-    (a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
-  )
-  const out: { dia: Date; items: Reserva[] }[] = []
-  for (const r of ordenados) {
-    const d = startOfDay(new Date(r.fecha_hora))
-    const last = out[out.length - 1]
-    if (last && isSameDay(last.dia, d)) last.items.push(r)
-    else out.push({ dia: d, items: [r] })
-  }
-  return out
-}
-
 export default function BarberoDashboard() {
   const supabase = createClient()
   const router = useRouter()
@@ -88,7 +68,6 @@ export default function BarberoDashboard() {
   } | null>(null)
   const [mesVisible, setMesVisible] = useState(() => startOfMonth(new Date()))
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => startOfDay(new Date()))
-  const [vistaAgenda, setVistaAgenda] = useState<'dia' | 'semana' | 'mes'>('dia')
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [conteosMes, setConteosMes] = useState<Record<string, number>>({})
   const [bloqueosDia, setBloqueosDia] = useState<
@@ -231,26 +210,9 @@ export default function BarberoDashboard() {
 
   const refrescarVistaAgenda = useCallback(async () => {
     if (!barbero) return
-    if (vistaAgenda === 'dia') {
-      await cargarReservasRango(barbero.id, diaSeleccionado, diaSeleccionado)
-    } else if (vistaAgenda === 'semana') {
-      const ini = startOfWeek(diaSeleccionado, { weekStartsOn: 1 })
-      const fin = endOfWeek(diaSeleccionado, { weekStartsOn: 1 })
-      await cargarReservasRango(barbero.id, ini, fin)
-    } else {
-      const ini = startOfMonth(mesVisible)
-      const fin = endOfMonth(mesVisible)
-      await cargarReservasRango(barbero.id, ini, fin)
-    }
+    await cargarReservasRango(barbero.id, diaSeleccionado, diaSeleccionado)
     void cargarConteosMes(barbero.id, mesVisible)
-  }, [
-    barbero,
-    vistaAgenda,
-    diaSeleccionado,
-    mesVisible,
-    cargarReservasRango,
-    cargarConteosMes,
-  ])
+  }, [barbero, diaSeleccionado, mesVisible, cargarReservasRango, cargarConteosMes])
 
   const cargarBloqueosDia = useCallback(
     async (barberoId: string, negocioId: string, dia: Date) => {
@@ -357,25 +319,8 @@ export default function BarberoDashboard() {
     }
   }, [panel, nuevaPaso, barbero, diaSeleccionado, servicioId, nrBarberoDestinoId])
 
-  /** Derivados sin hooks (evita #310 en hidratación / builds minificados) */
-  let rangoTitulo: string
-  if (vistaAgenda === 'dia') {
-    rangoTitulo = format(diaSeleccionado, "EEEE d 'de' MMMM yyyy", { locale: es })
-  } else if (vistaAgenda === 'semana') {
-    const a = startOfWeek(diaSeleccionado, { weekStartsOn: 1 })
-    const b = endOfWeek(diaSeleccionado, { weekStartsOn: 1 })
-    rangoTitulo = `${format(a, 'd MMM', { locale: es })} – ${format(b, "d MMM yyyy", { locale: es })}`
-  } else {
-    rangoTitulo = format(mesVisible, 'MMMM yyyy', { locale: es })
-  }
-  const gruposReservas = agruparReservasPorDia(reservas)
-  const tituloLista =
-    vistaAgenda === 'dia'
-      ? 'Reservas del día'
-      : vistaAgenda === 'semana'
-        ? 'Reservas de la semana'
-        : 'Reservas del mes'
-  const diaReservaEtiqueta = format(diaSeleccionado, "EEEE d 'de' MMMM yyyy", { locale: es })
+  const rangoTitulo = format(diaSeleccionado, "EEEE d 'de' MMMM yyyy", { locale: es })
+  const diaReservaEtiqueta = rangoTitulo
 
   async function crearBloqueo() {
     if (!barbero?.negocio || !bloqueoHoraInicio || !bloqueoHoraFin) {
@@ -560,52 +505,6 @@ export default function BarberoDashboard() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <div className="flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-          {(
-            [
-              { id: 'dia' as const, label: 'Día', Icon: CalendarDays },
-              { id: 'semana' as const, label: 'Semana', Icon: CalendarRange },
-              { id: 'mes' as const, label: 'Mes', Icon: LayoutGrid },
-            ] as const
-          ).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setVistaAgenda(id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-colors ${
-                vistaAgenda === id
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {vistaAgenda === 'semana' && (
-          <div className="flex items-center justify-between gap-2 px-1">
-            <button
-              type="button"
-              onClick={() => setDiaSeleccionado(d => startOfDay(addDays(d, -7)))}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium"
-              aria-label="Semana anterior"
-            >
-              ←
-            </button>
-            <span className="text-xs text-gray-500 text-center flex-1">Cambia de semana o elige un día en el calendario</span>
-            <button
-              type="button"
-              onClick={() => setDiaSeleccionado(d => startOfDay(addDays(d, 7)))}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium"
-              aria-label="Semana siguiente"
-            >
-              →
-            </button>
-          </div>
-        )}
-
         <CalendarioMes
           mesVisible={mesVisible}
           onCambiarMes={setMesVisible}
@@ -904,92 +803,73 @@ export default function BarberoDashboard() {
         )}
 
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">{tituloLista}</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Reservas del día</h3>
           {reservas.length === 0 ? (
             <div className="card text-center py-10">
-              <p className="text-gray-400 text-sm">
-                {vistaAgenda === 'dia'
-                  ? 'No tienes reservas para este día'
-                  : vistaAgenda === 'semana'
-                    ? 'No tienes reservas en esta semana'
-                    : 'No tienes reservas en este mes'}
-              </p>
+              <p className="text-gray-400 text-sm">No tienes reservas para este día</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {gruposReservas.map(({ dia, items }) => (
-                <div key={dia.toISOString()} className="space-y-3">
-                  {(vistaAgenda !== 'dia' || gruposReservas.length > 1) && (
-                    <p className="text-xs font-semibold text-gray-500 capitalize border-b border-gray-100 pb-1">
-                      {format(
-                        dia,
-                        vistaAgenda === 'mes' ? "EEEE d 'de' MMMM" : "EEEE d MMM",
-                        { locale: es }
-                      )}
-                    </p>
-                  )}
-                  {items.map(r => (
-                    <div key={r.id} className="card">
-                      <div className="flex items-start gap-3">
-                        <div className="text-center shrink-0 w-14">
-                          <p className="text-lg font-bold text-brand-600">
-                            {new Date(r.fecha_hora).toLocaleTimeString('es-EC', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: false,
-                            })}
-                          </p>
-                          <p className="text-xs text-gray-400">{r.duracion} min</p>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900">{nombreClienteReservaRow(r)}</p>
-                          <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
-                            {r.cliente?.telefono && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="w-3 h-3 shrink-0" /> {r.cliente.telefono}
-                              </span>
-                            )}
-                            {r.cliente?.email && (
-                              <span className="flex items-center gap-1 min-w-0">
-                                <Mail className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{r.cliente.email}</span>
-                              </span>
-                            )}
-                            {r.servicio && (
-                              <span className="flex items-center gap-1">
-                                <Scissors className="w-3 h-3" /> {r.servicio.nombre}
-                              </span>
-                            )}
-                          </div>
-                          {r.notas_cliente && (
-                            <p className="text-xs text-gray-400 mt-1 italic">
-                              &quot;{r.notas_cliente}&quot;
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          {r.estado === 'confirmada' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void cambiarEstado(r.id, 'completada')}
-                                className="flex items-center gap-1 px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg"
-                              >
-                                <CheckCircle className="w-3 h-3" /> Listo
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void cambiarEstado(r.id, 'no_show')}
-                                className="flex items-center gap-1 px-2 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg"
-                              >
-                                <X className="w-3 h-3" /> No vino
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
+            <div className="space-y-3">
+              {reservas.map(r => (
+                <div key={r.id} className="card">
+                  <div className="flex items-start gap-3">
+                    <div className="text-center shrink-0 w-14">
+                      <p className="text-lg font-bold text-brand-600">
+                        {new Date(r.fecha_hora).toLocaleTimeString('es-EC', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-400">{r.duracion} min</p>
                     </div>
-                  ))}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900">{nombreClienteReservaRow(r)}</p>
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
+                        {r.cliente?.telefono && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3 shrink-0" /> {r.cliente.telefono}
+                          </span>
+                        )}
+                        {r.cliente?.email && (
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Mail className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{r.cliente.email}</span>
+                          </span>
+                        )}
+                        {r.servicio && (
+                          <span className="flex items-center gap-1">
+                            <Scissors className="w-3 h-3" /> {r.servicio.nombre}
+                          </span>
+                        )}
+                      </div>
+                      {r.notas_cliente && (
+                        <p className="text-xs text-gray-400 mt-1 italic">
+                          &quot;{r.notas_cliente}&quot;
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {r.estado === 'confirmada' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void cambiarEstado(r.id, 'completada')}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg"
+                          >
+                            <CheckCircle className="w-3 h-3" /> Listo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void cambiarEstado(r.id, 'no_show')}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg"
+                          >
+                            <X className="w-3 h-3" /> No vino
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
