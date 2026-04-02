@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 
 interface Stats {
   totalMes: number
@@ -19,13 +21,19 @@ interface Stats {
 
 export default function ReportesPage() {
   const supabase = createClient()
+  const { capacidades } = usePlanAcceso()
   const [stats, setStats] = useState<Stats | null>(null)
   const [cargando, setCargando] = useState(true)
   const [mesSeleccionado, setMesSeleccionado] = useState(new Date())
 
   useEffect(() => {
-    cargar(mesSeleccionado)
-  }, [mesSeleccionado])
+    if (!capacidades?.reportesAvanzados) {
+      setCargando(false)
+      setStats(null)
+      return
+    }
+    void cargar(mesSeleccionado)
+  }, [mesSeleccionado, capacidades?.reportesAvanzados])
 
   async function cargar(mes: Date) {
     setCargando(true)
@@ -108,6 +116,27 @@ export default function ReportesPage() {
   const crecimiento = stats && stats.totalMesAnterior > 0
     ? Math.round(((stats.totalMes - stats.totalMesAnterior) / stats.totalMesAnterior) * 100)
     : null
+
+  if (!capacidades?.reportesAvanzados) {
+    return (
+      <div className="max-w-lg">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Reportes avanzados</h1>
+        <p className="text-gray-600 text-sm mb-6">
+          Ingresos estimados, servicio y profesional más reservados, hora pico y comparativa mes a mes están
+          incluidos en el plan Pro (y en tu periodo de prueba).
+        </p>
+        <div className="card space-y-4">
+          <p className="text-sm text-gray-600">
+            Con el plan Básico sigues teniendo agenda, reservas y clientes; al subir de plan desbloqueas este
+            panel sin perder datos.
+          </p>
+          <Link href="/#planes" className="btn-primary inline-block text-center">
+            Ver planes y mejorar
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl">

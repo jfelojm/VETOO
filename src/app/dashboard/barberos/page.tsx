@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Plus, Mail, Check, X } from 'lucide-react'
+import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
+import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
+import Link from 'next/link'
 
 interface Staff {
   id: string
@@ -17,6 +20,7 @@ interface Staff {
 
 export default function StaffPage() {
   const supabase = createClient()
+  const { capacidades } = usePlanAcceso()
   const [staff, setStaff] = useState<Staff[]>([])
   const [negocioId, setNegocioId] = useState('')
   const [cargando, setCargando] = useState(true)
@@ -47,6 +51,13 @@ export default function StaffPage() {
 
   async function agregarMiembro() {
     if (!nombre.trim()) { toast.error('Ingresa el nombre'); return }
+    const activos = staff.filter(b => b.activo).length
+    if (capacidades && activos >= capacidades.maxBarberosActivos) {
+      toast.error(
+        `Tu plan permite hasta ${capacidades.maxBarberosActivos} profesionales activos. Sube a Pro para ilimitados.`
+      )
+      return
+    }
     setGuardando(true)
     const { data, error } = await supabase
       .from('barberos')
@@ -60,6 +71,15 @@ export default function StaffPage() {
   }
 
   async function toggleActivo(miembro: Staff) {
+    if (!miembro.activo && capacidades) {
+      const activos = staff.filter(b => b.activo).length
+      if (activos >= capacidades.maxBarberosActivos) {
+        toast.error(
+          `Límite de ${capacidades.maxBarberosActivos} profesionales activos en tu plan. Desactiva otro o sube a Pro.`
+        )
+        return
+      }
+    }
     const { error } = await supabase
       .from('barberos').update({ activo: !miembro.activo }).eq('id', miembro.id)
     if (error) { toast.error('Error al actualizar'); return }
@@ -88,14 +108,37 @@ export default function StaffPage() {
 
   if (cargando) return <div className="text-gray-400 text-sm">Cargando...</div>
 
+  const activos = staff.filter(b => b.activo).length
+  const tope = capacidades?.maxBarberosActivos ?? 999
+  const puedeAgregarMas =
+    capacidades?.puedeOperarNegocio && activos < tope
+
   return (
+    <RequierePlanOperativo>
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Staff</h1>
-          <p className="text-gray-500 text-sm mt-1">{staff.length} miembros del equipo</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {activos} activo{activos !== 1 ? 's' : ''}
+            {capacidades?.nivel === 'basic' ? ` · máx. ${tope} en plan Básico` : ''}
+            {capacidades?.nivel === 'pro' ? ' · ilimitado en tu plan' : ''}
+          </p>
+          {capacidades?.nivel === 'basic' && activos >= tope && (
+            <p className="text-xs text-amber-800 mt-2">
+              <Link href="/#planes" className="font-medium text-brand-700 underline">
+                Plan Pro
+              </Link>
+              {' '}incluye staff ilimitado.
+            </p>
+          )}
         </div>
-        <button onClick={() => setMostrarForm(!mostrarForm)} className="btn-primary flex items-center gap-2">
+        <button
+          type="button"
+          disabled={!puedeAgregarMas}
+          onClick={() => puedeAgregarMas && setMostrarForm(!mostrarForm)}
+          className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Plus className="w-4 h-4" /> Agregar
         </button>
       </div>
@@ -194,5 +237,6 @@ export default function StaffPage() {
         </div>
       )}
     </div>
+    </RequierePlanOperativo>
   )
 }

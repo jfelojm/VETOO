@@ -97,7 +97,7 @@ export default function HomePage() {
       </section>
 
       {/* Pricing */}
-      <section className="py-20 bg-white">
+      <section id="planes" className="py-20 bg-white scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-3">Planes</h2>
           <p className="text-gray-500 text-center mb-12 max-w-xl mx-auto">

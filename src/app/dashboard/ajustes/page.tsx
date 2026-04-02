@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +9,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Save, Copy, ExternalLink, Clock } from 'lucide-react'
 import type { Negocio } from '@/types'
+import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 
 const DIAS = [
   { key: 'lunes',     label: 'Lunes' },
@@ -64,6 +66,8 @@ const HORARIO_DEFAULT: Horario = {
 
 export default function AjustesPage() {
   const supabase = createClient()
+  const { capacidades } = usePlanAcceso()
+  const soloLectura = !capacidades?.puedeOperarNegocio
   const [negocio, setNegocio] = useState<Negocio | null>(null)
   const [loading, setLoading] = useState(true)
   const [horario, setHorario] = useState<Horario>(HORARIO_DEFAULT)
@@ -108,6 +112,10 @@ export default function AjustesPage() {
 
   async function onSubmit(data: FormData) {
     if (!negocio) return
+    if (soloLectura) {
+      toast.error('Renueva tu plan para guardar cambios en la configuración.')
+      return
+    }
     const { error } = await supabase.from('negocios').update(data).eq('id', negocio.id)
     if (error) toast.error('Error al guardar')
     else toast.success('Cambios guardados')
@@ -115,6 +123,10 @@ export default function AjustesPage() {
 
   async function guardarHorario() {
     if (!negocio) return
+    if (soloLectura) {
+      toast.error('Renueva tu plan para modificar el horario.')
+      return
+    }
     setGuardandoHorario(true)
     const { error } = await supabase.from('negocios').update({ horario }).eq('id', negocio.id)
     if (error) toast.error('Error al guardar horario')
@@ -163,6 +175,19 @@ export default function AjustesPage() {
         <p className="text-gray-500 text-sm mt-1">Configura tu negocio y tus reglas de reserva</p>
       </div>
 
+      {soloLectura && (
+        <div className="card mb-6 border-amber-200 bg-amber-50 text-amber-950">
+          <p className="text-sm font-medium mb-1">Solo lectura</p>
+          <p className="text-xs text-amber-900/90 mb-3">
+            Tu suscripción no permite cambiar horarios ni datos del negocio. Sigue viendo tu link y la
+            configuración actual.
+          </p>
+          <Link href="/#planes" className="text-sm font-medium text-brand-800 underline">
+            Ver planes y reactivar
+          </Link>
+        </div>
+      )}
+
       {/* Link de reservas */}
       {negocio && (
         <div className="card mb-6 bg-brand-50 border-brand-200">
@@ -184,7 +209,8 @@ export default function AjustesPage() {
       )}
 
       {/* ===== HORARIO ===== */}
-      <div className="card mb-6">
+      <fieldset disabled={soloLectura} className="min-w-0 border-0 p-0 m-0 mb-6 block">
+        <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <Clock className="w-4 h-4 text-brand-600" />
           <h2 className="font-semibold text-gray-900">Horario de atención</h2>
@@ -253,10 +279,12 @@ export default function AjustesPage() {
           <Save className="w-4 h-4" />
           {guardandoHorario ? 'Guardando...' : 'Guardar horario'}
         </button>
-      </div>
+        </div>
+      </fieldset>
 
       {/* ===== INFO GENERAL ===== */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <fieldset disabled={soloLectura} className="min-w-0 border-0 p-0 m-0 space-y-6">
         <div className="card">
           <h2 className="font-semibold text-gray-900 mb-4">Información del negocio</h2>
           <div className="space-y-4">
@@ -398,6 +426,7 @@ export default function AjustesPage() {
           <Save className="w-4 h-4" />
           {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
         </button>
+        </fieldset>
       </form>
     </div>
   )

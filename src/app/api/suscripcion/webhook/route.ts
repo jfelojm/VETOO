@@ -6,15 +6,46 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder'
   apiVersion: '2024-04-10',
 })
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+function getSupabaseAdmin() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key)
+}
+
+function buildPriceToPlan(): Record<string, string> {
+  const m: Record<string, string> = {}
+  if (process.env.STRIPE_PRICE_BASIC) m[process.env.STRIPE_PRICE_BASIC] = 'basic'
+  if (process.env.STRIPE_PRICE_PRO) m[process.env.STRIPE_PRICE_PRO] = 'pro'
+  if (process.env.STRIPE_PRICE_PREMIUM) m[process.env.STRIPE_PRICE_PREMIUM] = 'premium'
+  return m
+}
+
+async function aplicarPlanDesdeSuscripcion(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  subscription: Stripe.Subscription
+) {
+  const negocioId = subscription.metadata?.negocio_id
+  if (!negocioId) return
+
+  const priceId = subscription.items.data[0]?.price?.id
+  if (!priceId) return
+
+  const plan = buildPriceToPlan()[priceId] ?? 'basic'
+
+  await supabase
+    .from('negocios')
+    .update({
+      plan,
+      stripe_subscription_id: subscription.id,
+      plan_expira_at: new Date(subscription.current_period_end * 1000).toISOString(),
+    })
+    .eq('id', negocioId)
 }
 
 export async function POST(req: NextRequest) {
-  const body      = await req.text()
+  const body = await req.text()
   const signature = req.headers.get('stripe-signature')
 
   if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
@@ -28,46 +59,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  const supabase = getSupabase()
-
-  const PRICE_TO_PLAN: Record<string, string> = {
-    [process.env.STRIPE_PRICE_BASIC  ?? '']: 'basic',
-    [process.env.STRIPE_PRICE_PRO    ?? '']: 'pro',
-    [process.env.STRIPE_PRICE_PREMIUM ?? '']: 'premium',
+  let supabase: ReturnType<typeof getSupabaseAdmin>
+  try {
+    supabase = getSupabaseAdmin()
+  } catch {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
   }
 
   switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session
+      const subId = session.subscription
+      if (typeof subId !== 'string') break
+      const subscription = await stripe.subscriptions.retrieve(subId)
+      await aplicarPlanDesdeSuscripcion(supabase, subscription)
+      break
+    }
     case 'invoice.payment_succeeded': {
       const invoice = event.data.object as Stripe.Invoice
-      const subscriptionId = invoice.subscription as string
+      const subscriptionId = invoice.subscription
+      if (typeof subscriptionId !== 'string') break
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      const negocioId = subscription.metadata.negocio_id
-      const priceId = subscription.items.data[0].price.id
-      const plan = PRICE_TO_PLAN[priceId] ?? 'basic'
-      await supabase.from('negocios').update({
-        plan,
-        stripe_subscription_id: subscriptionId,
-        plan_expira_at: new Date(subscription.current_period_end * 1000).toISOString(),
-      }).eq('id', negocioId)
+      await aplicarPlanDesdeSuscripcion(supabase, subscription)
       break
     }
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
-      const negocioId = subscription.metadata.negocio_id
-      await supabase.from('negocios').update({ plan: 'cancelled' }).eq('id', negocioId)
+      const negocioId = subscription.metadata?.negocio_id
+      if (negocioId) {
+        await supabase.from('negocios').update({ plan: 'cancelled' }).eq('id', negocioId)
+      }
       break
     }
     case 'customer.subscription.updated': {
       const subscription = event.data.object as Stripe.Subscription
-      const negocioId = subscription.metadata.negocio_id
-      const priceId = subscription.items.data[0].price.id
-      const plan = PRICE_TO_PLAN[priceId] ?? 'basic'
-      await supabase.from('negocios').update({
-        plan,
-        plan_expira_at: new Date(subscription.current_period_end * 1000).toISOString(),
-      }).eq('id', negocioId)
+      await aplicarPlanDesdeSuscripcion(supabase, subscription)
       break
     }
+    default:
+      break
   }
 
   return NextResponse.json({ received: true })

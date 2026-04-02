@@ -6,32 +6,45 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETIQUETA_STAFF, getTipoConfig } from '@/lib/negocio-tipo'
 import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap, Lock } from 'lucide-react'
+import { PlanAccesoProvider, usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
+import AvisoSuscripcion from '@/components/dashboard/AvisoSuscripcion'
 
-const NAV = [
-  { href: '/dashboard',           icon: Calendar,  label: 'Agenda' },
-  { href: '/dashboard/barberos', icon: Users, label: ETIQUETA_STAFF },
-  { href: '/dashboard/bloqueos',  icon: Lock,      label: 'Bloqueos' },
-  { href: '/dashboard/servicios', icon: Scissors,  label: 'Servicios' },
-  { href: '/dashboard/reservas',  icon: Calendar,  label: 'Reservas' },
-  { href: '/dashboard/clientes',  icon: Users,     label: 'Clientes' },
-  { href: '/dashboard/reportes',  icon: BarChart3, label: 'Reportes' },
-  { href: '/dashboard/ajustes',   icon: Settings,  label: 'Ajustes' },
-]
+const NAV_BASE = [
+  { href: '/dashboard', icon: Calendar, label: 'Agenda', soloLectura: true, proOnly: false },
+  { href: '/dashboard/barberos', icon: Users, label: ETIQUETA_STAFF, soloLectura: false, proOnly: false },
+  { href: '/dashboard/bloqueos', icon: Lock, label: 'Bloqueos', soloLectura: false, proOnly: false },
+  { href: '/dashboard/servicios', icon: Scissors, label: 'Servicios', soloLectura: false, proOnly: false },
+  { href: '/dashboard/reservas', icon: Calendar, label: 'Reservas', soloLectura: true, proOnly: false },
+  { href: '/dashboard/clientes', icon: Users, label: 'Clientes', soloLectura: true, proOnly: false },
+  { href: '/dashboard/reportes', icon: BarChart3, label: 'Reportes', soloLectura: true, proOnly: true },
+  { href: '/dashboard/ajustes', icon: Settings, label: 'Ajustes', soloLectura: true, proOnly: false },
+] as const
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
-  const [negocio, setNegocio] = useState<any>(null)
+  const [negocio, setNegocio] = useState<{
+    id: string
+    nombre: string
+    slug: string
+    plan: string
+    trial_expira_at: string | null
+    plan_expira_at: string | null
+    tipo_negocio?: string | null
+  } | null>(null)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
     async function verificar() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/auth/login'); return }
+      if (!user) {
+        router.replace('/auth/login')
+        return
+      }
       const { data } = await supabase
         .from('negocios')
-        .select('id, nombre, slug, plan, trial_expira_at, tipo_negocio')
+        .select('id, nombre, slug, plan, trial_expira_at, plan_expira_at, tipo_negocio')
         .eq('owner_id', user.id)
         .maybeSingle()
       if (!data) {
@@ -43,32 +56,87 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace('/auth/register')
         return
       }
-      setNegocio(data)
+      setNegocio(data as typeof negocio)
       setCargando(false)
     }
-    verificar()
-  }, [])
+    void verificar()
+  }, [router, supabase])
 
-  if (cargando) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <Scissors className="w-8 h-8 text-brand-600 mx-auto mb-3 animate-pulse" />
-        <p className="text-gray-400 text-sm">Cargando tu panel...</p>
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Scissors className="w-8 h-8 text-brand-600 mx-auto mb-3 animate-pulse" />
+          <p className="text-gray-400 text-sm">Cargando tu panel...</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
-  const diasTrial = negocio?.plan === 'trial' && negocio?.trial_expira_at
-    ? Math.max(0, Math.ceil((new Date(negocio.trial_expira_at).getTime() - Date.now()) / 86400000))
-    : null
+  if (!negocio) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-400 text-sm">Redirigiendo…</p>
+      </div>
+    )
+  }
+
+  const negocioPlan = {
+    id: negocio.id,
+    nombre: negocio.nombre,
+    slug: negocio.slug,
+    plan: negocio.plan,
+    plan_expira_at: negocio.plan_expira_at ?? null,
+    trial_expira_at: negocio.trial_expira_at ?? null,
+    tipo_negocio: negocio.tipo_negocio,
+  }
+
+  return (
+    <PlanAccesoProvider negocio={negocioPlan}>
+      <DashboardShell negocio={negocio} pathname={pathname} supabase={supabase}>
+        {children}
+      </DashboardShell>
+    </PlanAccesoProvider>
+  )
+}
+
+type NegocioRow = {
+  id: string
+  nombre: string
+  slug: string
+  plan: string
+  trial_expira_at: string | null
+  plan_expira_at: string | null
+  tipo_negocio?: string | null
+}
+
+function DashboardShell({
+  negocio,
+  pathname,
+  supabase,
+  children,
+}: {
+  negocio: NegocioRow
+  pathname: string
+  supabase: ReturnType<typeof createClient>
+  children: React.ReactNode
+}) {
+  const { capacidades, avisoPlan } = usePlanAcceso()
+  const tipoCfg = getTipoConfig(negocio.tipo_negocio)
+  const TipoSidebarIcon = tipoCfg.Icon
+
+  const diasTrial =
+    negocio.plan === 'trial' && negocio.trial_expira_at
+      ? Math.max(
+          0,
+          Math.ceil((new Date(negocio.trial_expira_at!).getTime() - Date.now()) / 86400000)
+        )
+      : null
 
   async function cerrarSesion() {
     await supabase.auth.signOut()
     window.location.replace('/auth/login')
   }
-
-  const tipoCfg = getTipoConfig(negocio?.tipo_negocio)
-  const TipoSidebarIcon = tipoCfg.Icon
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -78,24 +146,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Scissors className="w-5 h-5 text-brand-600" />
             <span className="font-bold text-sm">Turnapp</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1 truncate">{negocio?.nombre}</p>
+          <p className="text-xs text-gray-400 mt-1 truncate">{negocio.nombre}</p>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-brand-700 bg-brand-50 rounded-lg px-2 py-1 border border-brand-100">
             <TipoSidebarIcon className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate font-medium">{tipoCfg.label}</span>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
-          {NAV.map(item => (
-            <Link key={item.href} href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                pathname === item.href
-                  ? 'bg-brand-50 text-brand-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}>
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </Link>
-          ))}
+          {NAV_BASE.map(item => {
+            if (item.proOnly && !capacidades?.reportesAvanzados) return null
+            if (!item.soloLectura && capacidades?.nivel === 'solo_lectura') return null
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  pathname === item.href
+                    ? 'bg-brand-50 text-brand-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
         <div className="p-3">
           {diasTrial !== null && (
@@ -109,18 +184,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </p>
             </div>
           )}
-          <a href={`/reservar/${negocio?.slug}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 transition-colors">
+          <a
+            href={`/reservar/${negocio.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+          >
             <span>🔗</span> Ver mi página de reservas
           </a>
-          <button onClick={cerrarSesion}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors mt-1">
+          <button
+            type="button"
+            onClick={() => void cerrarSesion()}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors mt-1"
+          >
             <LogOut className="w-4 h-4" />
             Cerrar sesión
           </button>
         </div>
       </aside>
       <main className="ml-60 flex-1 p-8 min-h-screen">
+        {avisoPlan && capacidades?.nivel === 'solo_lectura' && <AvisoSuscripcion mensaje={avisoPlan} />}
         {children}
       </main>
     </div>

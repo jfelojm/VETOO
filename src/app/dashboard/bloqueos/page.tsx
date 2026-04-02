@@ -16,6 +16,7 @@ import { Lock, Users, Trash2 } from 'lucide-react'
 import type { SlotDisponible } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
 import GrillaHorarios from '@/components/calendario/GrillaHorarios'
+import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
 
 type NegocioHorario = {
   id: string
@@ -222,6 +223,7 @@ export default function BloqueosDashboardPage() {
   const subtituloDia = format(diaSeleccionado, "EEEE d 'de' MMMM yyyy", { locale: es })
 
   return (
+    <RequierePlanOperativo>
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Bloqueos de agenda</h1>
       <p className="text-gray-500 text-sm mb-6">
@@ -353,5 +355,6 @@ export default function BloqueosDashboardPage() {
         </>
       )}
     </div>
+    </RequierePlanOperativo>
   )
 }

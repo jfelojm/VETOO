@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Scissors } from 'lucide-react'
+import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
+import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
 
 interface Servicio {
   id: string
@@ -17,6 +20,7 @@ interface Servicio {
 
 export default function ServiciosPage() {
   const supabase = createClient()
+  const { capacidades } = usePlanAcceso()
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [negocioId, setNegocioId] = useState<string>('')
   const [cargando, setCargando] = useState(true)
@@ -57,6 +61,14 @@ export default function ServiciosPage() {
       setServicios(prev => prev.map(s => s.id === editando.id ? { ...s, ...payload } : s))
       toast.success('Servicio actualizado')
     } else {
+      const tope = capacidades?.maxServicios ?? 999
+      if (servicios.length >= tope) {
+        toast.error(
+          `Tu plan permite hasta ${tope} servicios. Sube a Pro para ilimitados.`
+        )
+        setGuardando(false)
+        return
+      }
       const { data, error } = await supabase.from('servicios').insert({
         ...payload, negocio_id: negocioId, orden: servicios.length
       }).select().single()
@@ -97,15 +109,37 @@ export default function ServiciosPage() {
 
   if (cargando) return <div className="text-gray-400 text-sm">Cargando...</div>
 
+  const topeServ = capacidades?.maxServicios ?? 999
+  const puedeNuevoServicio =
+    capacidades?.puedeOperarNegocio && servicios.length < topeServ
+
   return (
+    <RequierePlanOperativo>
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Servicios</h1>
-          <p className="text-gray-500 text-sm mt-1">Define los servicios que ofreces y sus precios</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {servicios.length} servicio{servicios.length !== 1 ? 's' : ''}
+            {capacidades?.nivel === 'basic' ? ` · máx. ${topeServ} en plan Básico` : ''}
+            {capacidades?.nivel === 'pro' ? ' · ilimitado en tu plan' : ''}
+          </p>
+          {capacidades?.nivel === 'basic' && servicios.length >= topeServ && (
+            <p className="text-xs text-amber-800 mt-2">
+              <Link href="/#planes" className="font-medium text-brand-700 underline">
+                Plan Pro
+              </Link>
+              {' '}incluye servicios ilimitados.
+            </p>
+          )}
         </div>
         {!mostrarForm && (
-          <button onClick={() => setMostrarForm(true)} className="btn-primary flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!puedeNuevoServicio}
+            onClick={() => puedeNuevoServicio && setMostrarForm(true)}
+            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Plus className="w-4 h-4" /> Agregar servicio
           </button>
         )}
@@ -157,7 +191,12 @@ export default function ServiciosPage() {
         <div className="card text-center py-12">
           <Scissors className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm mb-4">No tienes servicios agregados todavía</p>
-          <button onClick={() => setMostrarForm(true)} className="btn-primary">
+          <button
+            type="button"
+            disabled={!puedeNuevoServicio}
+            onClick={() => puedeNuevoServicio && setMostrarForm(true)}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Plus className="w-4 h-4 inline mr-2" /> Agregar el primero
           </button>
         </div>
@@ -195,5 +234,6 @@ export default function ServiciosPage() {
         </div>
       )}
     </div>
+    </RequierePlanOperativo>
   )
 }

@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { User, Phone, Mail, Calendar, AlertTriangle } from 'lucide-react'
+import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 
 interface Cliente {
   id: string
@@ -20,6 +22,7 @@ interface Cliente {
 
 export default function ClientesPage() {
   const supabase = createClient()
+  const { capacidades } = usePlanAcceso()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -44,6 +47,9 @@ export default function ClientesPage() {
   }, [])
 
   async function toggleBloqueo(cliente: Cliente) {
+    if (!capacidades?.listaNegraClientes) {
+      return
+    }
     const { error } = await supabase
       .from('clientes')
       .update({ bloqueado: !cliente.bloqueado })
@@ -66,6 +72,14 @@ export default function ClientesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
           <p className="text-gray-500 text-sm mt-1">{clientes.length} clientes registrados</p>
+          {!capacidades?.listaNegraClientes && (
+            <p className="text-xs text-amber-800 mt-2 max-w-xl">
+              Bloquear o desbloquear clientes manualmente es parte del plan Pro.{' '}
+              <Link href="/#planes" className="font-medium text-brand-700 underline">
+                Ver planes
+              </Link>
+            </p>
+          )}
         </div>
       </div>
 
@@ -124,15 +138,19 @@ export default function ClientesPage() {
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => toggleBloqueo(c)}
-                  className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                    c.bloqueado
-                      ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                      : 'bg-red-50 text-red-600 hover:bg-red-100'
-                  }`}>
-                  {c.bloqueado ? 'Desbloquear' : 'Bloquear'}
-                </button>
+                {capacidades?.listaNegraClientes ? (
+                  <button
+                    type="button"
+                    onClick={() => void toggleBloqueo(c)}
+                    className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      c.bloqueado
+                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                    }`}
+                  >
+                    {c.bloqueado ? 'Desbloquear' : 'Bloquear'}
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}
