@@ -62,7 +62,26 @@ export async function procesarNotificacionPayPhone(
     return ok()
   }
 
-  const parsed = parsePlanDesdeAdditionalData(body.AdditionalData ?? null)
+  let supabase: ReturnType<typeof getSupabaseAdmin>
+  try {
+    supabase = getSupabaseAdmin()
+  } catch {
+    return fail('222')
+  }
+
+  let parsed = parsePlanDesdeAdditionalData(body.AdditionalData ?? null)
+
+  if (!parsed?.negocioId && body.ClientTransactionId) {
+    const { data: sesion } = await supabase
+      .from('payphone_link_sessions')
+      .select('negocio_id, plan')
+      .eq('client_transaction_id', body.ClientTransactionId)
+      .maybeSingle()
+    if (sesion?.negocio_id && (sesion.plan === 'basic' || sesion.plan === 'pro')) {
+      parsed = { negocioId: sesion.negocio_id, plan: sesion.plan }
+    }
+  }
+
   if (!parsed?.negocioId) {
     return fail('444')
   }
@@ -70,13 +89,6 @@ export async function procesarNotificacionPayPhone(
   const negocioId = parsed.negocioId
 
   const txId = String(body.TransactionId)
-
-  let supabase: ReturnType<typeof getSupabaseAdmin>
-  try {
-    supabase = getSupabaseAdmin()
-  } catch {
-    return fail('222')
-  }
 
   const { data: yaProcesada } = await supabase
     .from('negocios')
@@ -107,6 +119,8 @@ export async function procesarNotificacionPayPhone(
   if (!actualizados?.length) {
     return fail('444')
   }
+
+  await supabase.from('payphone_link_sessions').delete().eq('client_transaction_id', body.ClientTransactionId)
 
   return ok()
 }

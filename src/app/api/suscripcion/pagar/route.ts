@@ -8,13 +8,13 @@ import {
   payphoneNotifyUrlDesdeEnv,
   type PayPhonePlanKey,
 } from '@/lib/payphone-config'
+import { guardarPayphoneLinkSession } from '@/lib/payphone-link-session'
 
 function sanitizarCredencialPayPhone(raw: string | undefined): string {
   if (!raw) return ''
   return raw.trim().replace(/^['"]|['"]$/g, '')
 }
 
-/** Igual que en api/auth/callback: cookies leídas del request + setAll que acumula para el NextResponse final */
 function createSupabaseRouteClient(req: NextRequest) {
   const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
 
@@ -52,7 +52,7 @@ function jsonWithCookies(
     try {
       res.cookies.set(name, value, options)
     } catch {
-      /* opciones de cookie inválidas no deben tumbar la ruta */
+      /* ignore */
     }
   })
   return res
@@ -61,6 +61,39 @@ function jsonWithCookies(
 function respuestaPareceHtml(text: string): boolean {
   const t = text.trimStart()
   return t.startsWith('<!DOCTYPE') || t.startsWith('<html') || t.startsWith('<HTML')
+}
+
+function extraerUrlPayPhone(text: string): string | null {
+  const trimmed = text.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed
+  }
+  try {
+    const parsed = JSON.parse(text) as { url?: string }
+    if (parsed.url) return parsed.url
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+async function postPayPhone(
+  url: string,
+  token: string,
+  payload: Record<string, string | number | boolean>
+): Promise<{ res: Response; text: string }> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'User-Agent': 'Turnapp/1.0 (PayPhone Links)',
+    },
+    body: JSON.stringify(payload),
+  })
+  const text = await res.text()
+  return { res, text }
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +125,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL no configurada' }, { status: 500 })
     }
 
-    /** Solo si defines PAYPHONE_LINKS_NOTIFY_URL (la API Links a veces falla con HTML si el campo no aplica). */
     const notifyUrlOpcional = payphoneNotifyUrlDesdeEnv()
 
     const { supabase, cookiesToSet } = createSupabaseRouteClient(req)
@@ -129,9 +161,22 @@ export async function POST(req: NextRequest) {
     const clientTransactionId = clientTransactionIdPayPhone(negocioId)
     const additionalData = additionalDataPago(negocioId, plan)
 
-    // Cuerpo mínimo alineado a la doc. Links: no enviar expireIn=0 ni isAmountEditable=false
-    // (en algunos entornos ASP.NET eso dispara 500 con página HTML).
-    const payload: Record<string, string | number | boolean> = {
+    const guardado = await guardarPayphoneLinkSession(clientTransactionId, negocioId, plan)
+    if (!guardado.ok) {
+      return jsonWithCookies(
+        {
+          error:
+            'No se pudo registrar el pago. Aplica la migración 008 (payphone_link_sessions) en Supabase.',
+          detail: guardado.message,
+        },
+        500,
+        cookiesToSet
+      )
+    }
+
+    const linksUrl = payphoneLinksApiUrl()
+
+    const payloadCompleto: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
       tax: montos.tax,
@@ -143,21 +188,44 @@ export async function POST(req: NextRequest) {
       oneTime: true,
     }
     if (notifyUrlOpcional) {
-      payload.notifyUrl = notifyUrlOpcional
+      payloadCompleto.notifyUrl = notifyUrlOpcional
     }
 
-    const payphoneRes = await fetch(payphoneLinksApiUrl(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'User-Agent': 'Turnapp/1.0 (PayPhone Links)',
-      },
-      body: JSON.stringify(payload),
-    })
+    // Cuerpo mínimo oficial (sin additionalData / oneTime / notifyUrl) si el servidor devuelve HTML 500
+    const payloadMinimo: Record<string, string | number | boolean> = {
+      amount: montos.amount,
+      amountWithTax: montos.amountWithTax,
+      tax: montos.tax,
+      currency: 'USD',
+      reference: montos.reference,
+      clientTransactionId,
+      storeId: String(storeId),
+    }
 
-    const text = await payphoneRes.text()
+    let { res: payphoneRes, text } = await postPayPhone(linksUrl, token, payloadCompleto)
+
+    let url = extraerUrlPayPhone(text)
+    if (payphoneRes.ok && url) {
+      return jsonWithCookies({ url }, 200, cookiesToSet)
+    }
+
+    const reintentarMinimo =
+      !url &&
+      payphoneRes.status !== 401 &&
+      payphoneRes.status !== 403 &&
+      (respuestaPareceHtml(text) ||
+        payphoneRes.status >= 500 ||
+        (payphoneRes.ok && !url))
+
+    if (reintentarMinimo) {
+      const segundo = await postPayPhone(linksUrl, token, payloadMinimo)
+      url = extraerUrlPayPhone(segundo.text)
+      if (segundo.res.ok && url) {
+        return jsonWithCookies({ url }, 200, cookiesToSet)
+      }
+      payphoneRes = segundo.res
+      text = segundo.text
+    }
 
     if (respuestaPareceHtml(text)) {
       let hint = ''
@@ -166,10 +234,10 @@ export async function POST(req: NextRequest) {
           ' Revisa PAYPHONE_TOKEN y PAYPHONE_STORE_ID (mismo entorno: pruebas vs producción).'
       } else if (payphoneRes.status >= 500) {
         hint =
-          ' Error en servidor PayPhone: confirma en PayPhone Developer que la app tiene permiso API Links, token vigente y storeId correcto. No uses PAYPHONE_LINKS_NOTIFY_URL salvo que PayPhone lo confirme; el webhook se registra en el panel.'
+          ' Si persiste, abre ticket con PayPhone con hora del intento y storeId. Asegura permiso API Links en Developer.'
       } else {
         hint =
-          ' Si definiste PAYPHONE_LINKS_NOTIFY_URL, prueba sin ella. Webhook = Notificación Externa en el panel PayPhone.'
+          ' Si usas PAYPHONE_LINKS_NOTIFY_URL, prueba sin ella. Webhook en panel PayPhone.'
       }
       return jsonWithCookies(
         {
@@ -196,20 +264,6 @@ export async function POST(req: NextRequest) {
           cookiesToSet
         )
       }
-    }
-
-    const trimmed = text.trim()
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return jsonWithCookies({ url: trimmed }, 200, cookiesToSet)
-    }
-
-    try {
-      const parsed = JSON.parse(text) as { url?: string; message?: string }
-      if (parsed.url) {
-        return jsonWithCookies({ url: parsed.url }, 200, cookiesToSet)
-      }
-    } catch {
-      /* ignore */
     }
 
     return jsonWithCookies(
