@@ -6,6 +6,9 @@ export async function guardarPayphoneLinkSession(
   negocioId: string,
   plan: PayPhonePlanKey
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    return { ok: false, message: 'SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor' }
+  }
   const admin = createAdminClient()
   const { error } = await admin.from('payphone_link_sessions').insert({
     client_transaction_id: clientTransactionId,

@@ -162,15 +162,12 @@ export async function POST(req: NextRequest) {
     const additionalData = additionalDataPago(negocioId, plan)
 
     const guardado = await guardarPayphoneLinkSession(clientTransactionId, negocioId, plan)
-    if (!guardado.ok) {
-      return jsonWithCookies(
-        {
-          error:
-            'No se pudo registrar el pago. Aplica la migración 008 (payphone_link_sessions) en Supabase.',
-          detail: guardado.message,
-        },
-        500,
-        cookiesToSet
+    const sesionGuardada = guardado.ok
+    if (!sesionGuardada) {
+      console.warn(
+        '[payphone] payphone_link_sessions:',
+        guardado.message,
+        '— se sigue con payload completo; reintento mínimo desactivado hasta migrar 008.'
       )
     }
 
@@ -217,7 +214,7 @@ export async function POST(req: NextRequest) {
         payphoneRes.status >= 500 ||
         (payphoneRes.ok && !url))
 
-    if (reintentarMinimo) {
+    if (reintentarMinimo && sesionGuardada) {
       const segundo = await postPayPhone(linksUrl, token, payloadMinimo)
       url = extraerUrlPayPhone(segundo.text)
       if (segundo.res.ok && url) {
@@ -235,6 +232,10 @@ export async function POST(req: NextRequest) {
       } else if (payphoneRes.status >= 500) {
         hint =
           ' Si persiste, abre ticket con PayPhone con hora del intento y storeId. Asegura permiso API Links en Developer.'
+        if (!sesionGuardada) {
+          hint +=
+            ' Aplica en Supabase la migración 008 (tabla payphone_link_sessions) y SUPABASE_SERVICE_ROLE_KEY en el servidor para habilitar el segundo intento (cuerpo mínimo).'
+        }
       } else {
         hint =
           ' Si usas PAYPHONE_LINKS_NOTIFY_URL, prueba sin ella. Webhook en panel PayPhone.'
