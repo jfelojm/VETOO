@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import {
-  PAYPHONE_LINKS_URL,
+  payphoneLinksApiUrl,
   PAYPHONE_PLANES,
   additionalDataPago,
   clientTransactionIdPayPhone,
+  payphoneNotifyUrlDesdeEnv,
   type PayPhonePlanKey,
 } from '@/lib/payphone-config'
+
+function sanitizarCredencialPayPhone(raw: string | undefined): string {
+  if (!raw) return ''
+  return raw.trim().replace(/^['"]|['"]$/g, '')
+}
 
 /** Igual que en api/auth/callback: cookies leídas del request + setAll que acumula para el NextResponse final */
 function createSupabaseRouteClient(req: NextRequest) {
@@ -76,8 +82,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'negocio_id requerido' }, { status: 400 })
     }
 
-    const token = process.env.PAYPHONE_TOKEN
-    const storeId = process.env.PAYPHONE_STORE_ID
+    const token = sanitizarCredencialPayPhone(process.env.PAYPHONE_TOKEN)
+    const storeId = sanitizarCredencialPayPhone(process.env.PAYPHONE_STORE_ID)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
     if (!token || !storeId) {
       return NextResponse.json({ error: 'PayPhone no configurado en el servidor' }, { status: 500 })
@@ -86,7 +92,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL no configurada' }, { status: 500 })
     }
 
-    const notifyUrl = `${appUrl}/api/suscripcion/webhook/NotificacionPago`
+    /** Solo si defines PAYPHONE_LINKS_NOTIFY_URL (la API Links a veces falla con HTML si el campo no aplica). */
+    const notifyUrlOpcional = payphoneNotifyUrlDesdeEnv()
 
     const { supabase, cookiesToSet } = createSupabaseRouteClient(req)
 
@@ -122,26 +129,30 @@ export async function POST(req: NextRequest) {
     const clientTransactionId = clientTransactionIdPayPhone(negocioId)
     const additionalData = additionalDataPago(negocioId, plan)
 
-    const payload = {
+    const payload: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
       tax: montos.tax,
       currency: 'USD',
       reference: montos.reference,
       clientTransactionId,
-      storeId,
+      storeId: String(storeId),
       additionalData,
-      notifyUrl,
       oneTime: true,
       expireIn: 0,
       isAmountEditable: false,
     }
+    if (notifyUrlOpcional) {
+      payload.notifyUrl = notifyUrlOpcional
+    }
 
-    const payphoneRes = await fetch(PAYPHONE_LINKS_URL, {
+    const payphoneRes = await fetch(payphoneLinksApiUrl(), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'User-Agent': 'Turnapp/1.0 (PayPhone Links)',
       },
       body: JSON.stringify(payload),
     })
@@ -149,10 +160,14 @@ export async function POST(req: NextRequest) {
     const text = await payphoneRes.text()
 
     if (respuestaPareceHtml(text)) {
+      const hint =
+        payphoneRes.status === 401 || payphoneRes.status === 403
+          ? ' Revisa PAYPHONE_TOKEN y PAYPHONE_STORE_ID (sin comillas extra en Vercel).'
+          : ' Si usas PAYPHONE_LINKS_NOTIFY_URL y sigue fallando, quítala y registra el webhook solo en el panel PayPhone.'
       return jsonWithCookies(
         {
-          error:
-            'PayPhone devolvió una página HTML en lugar del enlace de pago. Revisa token, storeId y red.',
+          error: `PayPhone devolvió HTML (${payphoneRes.status}) en lugar del link.${hint}`,
+          payphoneStatus: payphoneRes.status,
         },
         502,
         cookiesToSet

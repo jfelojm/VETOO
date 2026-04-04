@@ -1,6 +1,22 @@
 /** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithTax + tax */
 
-export const PAYPHONE_LINKS_URL = 'https://pay.payphonetodoesposible.com/api/Links'
+const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
+
+/** Producción; sandbox u otro host si PayPhone te lo indica (`PAYPHONE_LINKS_API_URL`). */
+export function payphoneLinksApiUrl(): string {
+  return process.env.PAYPHONE_LINKS_API_URL?.trim() || DEFAULT_PAYPHONE_LINKS
+}
+
+/**
+ * URL de notificación por link (opcional).
+ * La API Links oficial no documenta bien `notifyUrl`; si el servidor devuelve HTML,
+ * deja esto sin definir y configura Notificación Externa solo en el panel PayPhone.
+ */
+export function payphoneNotifyUrlDesdeEnv(): string | undefined {
+  const raw = process.env.PAYPHONE_LINKS_NOTIFY_URL?.trim()
+  if (!raw) return undefined
+  return raw.replace(/\/$/, '')
+}
 
 export const PAYPHONE_PLANES = {
   basic: {
