@@ -129,6 +129,8 @@ export async function POST(req: NextRequest) {
     const clientTransactionId = clientTransactionIdPayPhone(negocioId)
     const additionalData = additionalDataPago(negocioId, plan)
 
+    // Cuerpo mínimo alineado a la doc. Links: no enviar expireIn=0 ni isAmountEditable=false
+    // (en algunos entornos ASP.NET eso dispara 500 con página HTML).
     const payload: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
@@ -139,8 +141,6 @@ export async function POST(req: NextRequest) {
       storeId: String(storeId),
       additionalData,
       oneTime: true,
-      expireIn: 0,
-      isAmountEditable: false,
     }
     if (notifyUrlOpcional) {
       payload.notifyUrl = notifyUrlOpcional
@@ -160,10 +160,17 @@ export async function POST(req: NextRequest) {
     const text = await payphoneRes.text()
 
     if (respuestaPareceHtml(text)) {
-      const hint =
-        payphoneRes.status === 401 || payphoneRes.status === 403
-          ? ' Revisa PAYPHONE_TOKEN y PAYPHONE_STORE_ID (sin comillas extra en Vercel).'
-          : ' Si usas PAYPHONE_LINKS_NOTIFY_URL y sigue fallando, quítala y registra el webhook solo en el panel PayPhone.'
+      let hint = ''
+      if (payphoneRes.status === 401 || payphoneRes.status === 403) {
+        hint =
+          ' Revisa PAYPHONE_TOKEN y PAYPHONE_STORE_ID (mismo entorno: pruebas vs producción).'
+      } else if (payphoneRes.status >= 500) {
+        hint =
+          ' Error en servidor PayPhone: confirma en PayPhone Developer que la app tiene permiso API Links, token vigente y storeId correcto. No uses PAYPHONE_LINKS_NOTIFY_URL salvo que PayPhone lo confirme; el webhook se registra en el panel.'
+      } else {
+        hint =
+          ' Si definiste PAYPHONE_LINKS_NOTIFY_URL, prueba sin ella. Webhook = Notificación Externa en el panel PayPhone.'
+      }
       return jsonWithCookies(
         {
           error: `PayPhone devolvió HTML (${payphoneRes.status}) en lugar del link.${hint}`,

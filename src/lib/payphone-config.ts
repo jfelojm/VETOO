@@ -20,7 +20,8 @@ export function payphoneNotifyUrlDesdeEnv(): string | undefined {
 
 export const PAYPHONE_PLANES = {
   basic: {
-    reference: 'Turnapp Plan Básico',
+    /** ASCII: algunos backends fallan con acentos en `reference` */
+    reference: 'Turnapp Plan Basico',
     /** Total a cobrar */
     amount: 2185,
     /** Base gravada (sin IVA) */
@@ -41,7 +42,10 @@ export function additionalDataPago(negocioId: string, plan: PayPhonePlanKey): st
   return JSON.stringify({ n: negocioId, p: plan })
 }
 
-/** Max 15 caracteres según PayPhone */
+/**
+ * Max 15 caracteres (PayPhone). Sin guiones; hex del UUID + milisegundos.
+ */
 export function clientTransactionIdPayPhone(negocioId: string): string {
-  return `${negocioId}-${Date.now()}`.slice(0, 15)
+  const compact = negocioId.replace(/-/g, '') + Date.now().toString()
+  return compact.slice(0, 15)
 }
