@@ -82,6 +82,9 @@ async function postPayPhone(
   token: string,
   payload: Record<string, string | number | boolean>
 ): Promise<{ res: Response; text: string }> {
+  console.log('PayPhone request body:', JSON.stringify(payload, null, 2))
+  console.log('PayPhone token (primeros 10 chars):', process.env.PAYPHONE_TOKEN?.substring(0, 10))
+  console.log('PayPhone storeId:', process.env.PAYPHONE_STORE_ID)
   const res = await fetch(url, {
     method: 'POST',
     headers: {
