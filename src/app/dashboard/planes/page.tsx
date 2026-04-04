@@ -103,7 +103,16 @@ export default function PlanesPage() {
         },
         body: JSON.stringify({ plan: planId, negocio_id: negocioId }),
       })
-      const data = (await res.json()) as { url?: string; error?: string }
+      const raw = await res.text()
+      let data: { url?: string; error?: string }
+      try {
+        data = JSON.parse(raw) as { url?: string; error?: string }
+      } catch {
+        toast.error(
+          'El servidor devolvió una respuesta no válida (¿HTML en lugar de JSON?). Revisa la consola de red.'
+        )
+        return
+      }
       if (!res.ok || !data.url) {
         toast.error(data.error ?? 'No se pudo crear el pago')
         return
