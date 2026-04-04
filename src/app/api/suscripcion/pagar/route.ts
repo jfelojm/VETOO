@@ -29,9 +29,15 @@ export async function POST(req: NextRequest) {
 
   const token = process.env.PAYPHONE_TOKEN
   const storeId = process.env.PAYPHONE_STORE_ID
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
   if (!token || !storeId) {
     return NextResponse.json({ error: 'PayPhone no configurado en el servidor' }, { status: 500 })
   }
+  if (!appUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL no configurada' }, { status: 500 })
+  }
+
+  const notifyUrl = `${appUrl}/api/suscripcion/webhook/NotificacionPago`
 
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -82,6 +88,7 @@ export async function POST(req: NextRequest) {
     clientTransactionId,
     storeId,
     additionalData,
+    notifyUrl,
     oneTime: true,
     expireIn: 0,
     isAmountEditable: false,
