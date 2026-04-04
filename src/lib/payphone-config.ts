@@ -2,9 +2,20 @@
 
 const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
 
+/** Variante que algunos hosts IIS enrutan distinto (evita 500 HTML por ruta incorrecta). */
+const PAYPHONE_LINKS_ALT_LOWERCASE = 'https://pay.payphonetodoesposible.com/api/links'
+
 /** Producción; sandbox u otro host si PayPhone te lo indica (`PAYPHONE_LINKS_API_URL`). */
 export function payphoneLinksApiUrl(): string {
   return process.env.PAYPHONE_LINKS_API_URL?.trim() || DEFAULT_PAYPHONE_LINKS
+}
+
+/** Orden: URL configurada o default (`/api/Links`), luego `/api/links` (minúsculas). */
+export function payphoneLinksUrlCandidates(): string[] {
+  const primary = payphoneLinksApiUrl()
+  const alt = PAYPHONE_LINKS_ALT_LOWERCASE
+  if (primary === alt) return [primary]
+  return [primary, alt]
 }
 
 /**

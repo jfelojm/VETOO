@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import {
-  payphoneLinksApiUrl,
+  payphoneLinksUrlCandidates,
   PAYPHONE_PLANES,
   additionalDataPago,
   clientTransactionIdPayPhone,
@@ -88,7 +88,6 @@ async function postPayPhone(
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
-      'User-Agent': 'Turnapp/1.0 (PayPhone Links)',
     },
     body: JSON.stringify(payload),
   })
@@ -171,8 +170,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const linksUrl = payphoneLinksApiUrl()
-
     const payloadCompleto: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
@@ -199,12 +196,36 @@ export async function POST(req: NextRequest) {
       storeId: String(storeId),
     }
 
-    let { res: payphoneRes, text } = await postPayPhone(linksUrl, token, payloadCompleto)
+    const candidatosUrl = payphoneLinksUrlCandidates()
+    let payphoneRes: Response
+    let text: string
+    let linksUrlUsada = candidatosUrl[0]
+
+    let intentoUrl = 0
+    for (;;) {
+      linksUrlUsada = candidatosUrl[intentoUrl] ?? linksUrlUsada
+      const r = await postPayPhone(linksUrlUsada, token, payloadCompleto)
+      payphoneRes = r.res
+      text = r.text
+      const url = extraerUrlPayPhone(text)
+      if (payphoneRes.ok && url) {
+        return jsonWithCookies({ url }, 200, cookiesToSet)
+      }
+      if (payphoneRes.status === 401 || payphoneRes.status === 403) {
+        break
+      }
+      const siguiente =
+        respuestaPareceHtml(text) &&
+        payphoneRes.status >= 500 &&
+        intentoUrl + 1 < candidatosUrl.length
+      if (siguiente) {
+        intentoUrl += 1
+        continue
+      }
+      break
+    }
 
     let url = extraerUrlPayPhone(text)
-    if (payphoneRes.ok && url) {
-      return jsonWithCookies({ url }, 200, cookiesToSet)
-    }
 
     const reintentarMinimo =
       !url &&
@@ -215,7 +236,7 @@ export async function POST(req: NextRequest) {
         (payphoneRes.ok && !url))
 
     if (reintentarMinimo && sesionGuardada) {
-      const segundo = await postPayPhone(linksUrl, token, payloadMinimo)
+      const segundo = await postPayPhone(linksUrlUsada, token, payloadMinimo)
       url = extraerUrlPayPhone(segundo.text)
       if (segundo.res.ok && url) {
         return jsonWithCookies({ url }, 200, cookiesToSet)
@@ -225,25 +246,24 @@ export async function POST(req: NextRequest) {
     }
 
     if (respuestaPareceHtml(text)) {
-      let hint = ''
+      let hint: string
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
         hint =
-          ' Revisa PAYPHONE_TOKEN y PAYPHONE_STORE_ID (mismo entorno: pruebas vs producción).'
+          'Token o storeId incorrectos, o entorno distinto (pruebas vs producción).'
       } else if (payphoneRes.status >= 500) {
         hint =
-          ' Si persiste, abre ticket con PayPhone con hora del intento y storeId. Asegura permiso API Links en Developer.'
+          'Error en PayPhone: confirma permiso API Links en Developer, token vigente y storeId. Si sigue igual, escribe a soporte PayPhone con hora y storeId.'
         if (!sesionGuardada) {
-          hint +=
-            ' Aplica en Supabase la migración 008 (tabla payphone_link_sessions) y SUPABASE_SERVICE_ROLE_KEY en el servidor para habilitar el segundo intento (cuerpo mínimo).'
+          hint += ' Migración 008 + SUPABASE_SERVICE_ROLE_KEY activan el reintento con cuerpo mínimo.'
         }
       } else {
-        hint =
-          ' Si usas PAYPHONE_LINKS_NOTIFY_URL, prueba sin ella. Webhook en panel PayPhone.'
+        hint = 'Prueba sin PAYPHONE_LINKS_NOTIFY_URL; el webhook se configura en el panel PayPhone.'
       }
       return jsonWithCookies(
         {
-          error: `PayPhone devolvió HTML (${payphoneRes.status}) en lugar del link.${hint}`,
+          error: `PayPhone devolvió HTML (${payphoneRes.status}). ${hint}`,
           payphoneStatus: payphoneRes.status,
+          payphoneUrl: linksUrlUsada,
         },
         502,
         cookiesToSet
