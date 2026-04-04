@@ -89,9 +89,18 @@ export default function PlanesPage() {
     if (!negocioId) return
     setCheckoutPlan(planId)
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       const res = await fetch('/api/suscripcion/pagar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
         body: JSON.stringify({ plan: planId, negocio_id: negocioId }),
       })
       const data = (await res.json()) as { url?: string; error?: string }
