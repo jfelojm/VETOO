@@ -25,6 +25,10 @@ function parsePlanDesdeAdditionalData(
   raw: string | null | undefined
 ): { negocioId: string; plan: PayPhonePlanKey } | null {
   if (!raw || typeof raw !== 'string') return null
+  const [negocioId, plan] = raw.split('|')
+  if (negocioId && plan && (plan === 'basic' || plan === 'pro')) {
+    return { negocioId, plan }
+  }
   try {
     const o = JSON.parse(raw) as { n?: string; p?: string }
     if (o.n && (o.p === 'basic' || o.p === 'pro')) {

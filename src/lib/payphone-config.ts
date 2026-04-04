@@ -50,7 +50,7 @@ export const PAYPHONE_PLANES = {
 export type PayPhonePlanKey = keyof typeof PAYPHONE_PLANES
 
 export function additionalDataPago(negocioId: string, plan: PayPhonePlanKey): string {
-  return JSON.stringify({ n: negocioId, p: plan })
+  return `${negocioId}|${plan}`
 }
 
 /**
