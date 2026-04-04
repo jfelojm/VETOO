@@ -5,7 +5,17 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETIQUETA_STAFF, getTipoConfig } from '@/lib/negocio-tipo'
-import { Scissors, Calendar, Settings, BarChart3, Users, LogOut, Zap, Lock } from 'lucide-react'
+import {
+  Scissors,
+  Calendar,
+  Settings,
+  BarChart3,
+  Users,
+  LogOut,
+  Zap,
+  Lock,
+  CreditCard,
+} from 'lucide-react'
 import { PlanAccesoProvider, usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 import AvisoSuscripcion from '@/components/dashboard/AvisoSuscripcion'
 
@@ -17,6 +27,7 @@ const NAV_BASE = [
   { href: '/dashboard/reservas', icon: Calendar, label: 'Reservas', soloLectura: true, proOnly: false },
   { href: '/dashboard/clientes', icon: Users, label: 'Clientes', soloLectura: true, proOnly: false },
   { href: '/dashboard/reportes', icon: BarChart3, label: 'Reportes', soloLectura: true, proOnly: true },
+  { href: '/dashboard/planes', icon: CreditCard, label: 'Planes', soloLectura: true, proOnly: false },
   { href: '/dashboard/ajustes', icon: Settings, label: 'Ajustes', soloLectura: true, proOnly: false },
 ] as const
 

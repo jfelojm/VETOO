@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import {
+  procesarNotificacionPayPhone,
+  type PayPhoneNotificacionBody,
+} from '@/lib/payphone-webhook'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder', {
   apiVersion: '2024-04-10',
@@ -44,61 +48,74 @@ async function aplicarPlanDesdeSuscripcion(
     .eq('id', negocioId)
 }
 
+/**
+ * Stripe webhooks (firma `stripe-signature`) o notificación PayPhone (JSON con TransactionId).
+ * PayPhone Notificación Externa con path `/webhook/NotificacionPago` está en ese route.
+ */
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = req.headers.get('stripe-signature')
 
-  if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'No webhook secret' }, { status: 400 })
-  }
-
-  let event: Stripe.Event
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
-  } catch {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-  }
-
-  let supabase: ReturnType<typeof getSupabaseAdmin>
-  try {
-    supabase = getSupabaseAdmin()
-  } catch {
-    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
-  }
-
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session
-      const subId = session.subscription
-      if (typeof subId !== 'string') break
-      const subscription = await stripe.subscriptions.retrieve(subId)
-      await aplicarPlanDesdeSuscripcion(supabase, subscription)
-      break
+  if (signature && process.env.STRIPE_WEBHOOK_SECRET) {
+    let event: Stripe.Event
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
+    } catch {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
-    case 'invoice.payment_succeeded': {
-      const invoice = event.data.object as Stripe.Invoice
-      const subscriptionId = invoice.subscription
-      if (typeof subscriptionId !== 'string') break
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      await aplicarPlanDesdeSuscripcion(supabase, subscription)
-      break
+
+    let supabase: ReturnType<typeof getSupabaseAdmin>
+    try {
+      supabase = getSupabaseAdmin()
+    } catch {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
     }
-    case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription
-      const negocioId = subscription.metadata?.negocio_id
-      if (negocioId) {
-        await supabase.from('negocios').update({ plan: 'cancelled' }).eq('id', negocioId)
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        const subId = session.subscription
+        if (typeof subId !== 'string') break
+        const subscription = await stripe.subscriptions.retrieve(subId)
+        await aplicarPlanDesdeSuscripcion(supabase, subscription)
+        break
       }
-      break
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+        const subscriptionId = invoice.subscription
+        if (typeof subscriptionId !== 'string') break
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        await aplicarPlanDesdeSuscripcion(supabase, subscription)
+        break
+      }
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription
+        const negocioId = subscription.metadata?.negocio_id
+        if (negocioId) {
+          await supabase.from('negocios').update({ plan: 'cancelled' }).eq('id', negocioId)
+        }
+        break
+      }
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription
+        await aplicarPlanDesdeSuscripcion(supabase, subscription)
+        break
+      }
+      default:
+        break
     }
-    case 'customer.subscription.updated': {
-      const subscription = event.data.object as Stripe.Subscription
-      await aplicarPlanDesdeSuscripcion(supabase, subscription)
-      break
-    }
-    default:
-      break
+
+    return NextResponse.json({ received: true })
   }
 
-  return NextResponse.json({ received: true })
+  try {
+    const json = JSON.parse(body) as PayPhoneNotificacionBody
+    if (json.TransactionId != null && json.ClientTransactionId != null) {
+      return procesarNotificacionPayPhone(json)
+    }
+  } catch {
+    /* no es JSON PayPhone */
+  }
+
+  return NextResponse.json({ error: 'Bad request' }, { status: 400 })
 }
