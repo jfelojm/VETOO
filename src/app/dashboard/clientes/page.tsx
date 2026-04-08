@@ -112,8 +112,10 @@ export default function ClientesPage() {
                   {c.nombre.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{c.nombre}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link href={`/dashboard/clientes/${c.id}`} className="font-medium text-gray-900 hover:text-brand-700">
+                      {c.nombre}
+                    </Link>
                     {c.bloqueado && (
                       <span className="badge badge-red flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> Bloqueado

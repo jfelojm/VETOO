@@ -15,6 +15,7 @@ import {
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import Link from 'next/link'
 import {
   Scissors,
   LogOut,
@@ -27,6 +28,7 @@ import {
   UserPlus,
   ChevronLeft,
   Trash2,
+  User,
 } from 'lucide-react'
 import type { SlotDisponible, Servicio } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
@@ -35,6 +37,7 @@ import { formatPrecio, nombreClienteReservaRow } from '@/lib/utils'
 
 interface Reserva {
   id: string
+  cliente_id: string
   fecha_hora: string
   duracion: number
   estado: string
@@ -849,7 +852,13 @@ export default function BarberoDashboard() {
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 shrink-0">
+                    <div className="flex flex-col gap-1 shrink-0 items-end">
+                      <Link
+                        href={`/barbero/clientes/${r.cliente_id}`}
+                        className="flex items-center gap-1 px-2 py-1.5 text-xs text-brand-700 bg-brand-50 rounded-lg hover:bg-brand-100 mb-1"
+                      >
+                        <User className="w-3 h-3" /> Ficha
+                      </Link>
                       {r.estado === 'confirmada' && (
                         <>
                           <button
