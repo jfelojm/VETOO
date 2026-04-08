@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { createSupabaseRouteClient, jsonWithCookies } from '@/lib/supabase-route'
-import { getMiBarberoId, usuarioTieneAccesoNegocio } from '@/lib/staff-cliente-access'
+import { resolveMiBarberoId, usuarioTieneAccesoNegocio } from '@/lib/staff-cliente-access'
 
 const BUCKET = 'client-notes'
 const MAX_BYTES = 5 * 1024 * 1024
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: 'No autorizado' }, 401, cookiesToSet)
   }
 
-  const miBarberoId = await getMiBarberoId(supabase, user.id)
+  const miBarberoId = await resolveMiBarberoId(supabase, user)
   if (!miBarberoId) {
     return jsonWithCookies({ error: 'Sin permiso' }, 403, cookiesToSet)
   }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: 'Solo puedes añadir fotos a tus notas' }, 403, cookiesToSet)
   }
 
-  const ok = await usuarioTieneAccesoNegocio(supabase, user.id, note.negocio_id)
+  const ok = await usuarioTieneAccesoNegocio(supabase, user, note.negocio_id)
   if (!ok) {
     return jsonWithCookies({ error: 'Sin acceso' }, 403, cookiesToSet)
   }

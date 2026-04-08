@@ -7,6 +7,7 @@ import { Plus, Mail, Check, X } from 'lucide-react'
 import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
 import Link from 'next/link'
+import { emailsIguales } from '@/lib/email'
 
 interface Staff {
   id: string
@@ -30,6 +31,8 @@ export default function StaffPage() {
   const [guardando, setGuardando] = useState(false)
   const [invitandoId, setInvitandoId] = useState<string | null>(null)
   const [emailInvite, setEmailInvite] = useState('')
+  const [correoDueño, setCorreoDueño] = useState<string | null>(null)
+  const [vinculandoId, setVinculandoId] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -38,6 +41,7 @@ export default function StaffPage() {
       const { data: neg } = await supabase.from('negocios').select('id').eq('owner_id', user.id).single()
       if (!neg) return
       setNegocioId(neg.id)
+      setCorreoDueño(user.email ?? null)
       const { data } = await supabase
         .from('barberos')
         .select('*')
@@ -87,23 +91,61 @@ export default function StaffPage() {
   }
 
   async function enviarInvitacion(miembro: Staff) {
-    if (!emailInvite.trim()) { toast.error('Ingresa el email'); return }
+    if (!emailInvite.trim()) {
+      toast.error('Ingresa el email')
+      return
+    }
+    if (correoDueño && emailsIguales(emailInvite, correoDueño)) {
+      toast.error(
+        'El correo del administrador no puede usarse para invitar a un profesional. Usa otro correo o «Vincular mi cuenta» si tú eres ese profesional.'
+      )
+      return
+    }
     setGuardando(true)
     const res = await fetch('/api/barberos/invitar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ barbero_id: miembro.id, email: emailInvite.trim(), negocio_id: negocioId }),
     })
+    const payload = await res.json().catch(() => ({}))
     if (!res.ok) {
-      toast.error('Error al enviar invitación')
+      toast.error(typeof payload.error === 'string' ? payload.error : 'Error al enviar invitación')
       setGuardando(false)
       return
     }
-    setStaff(prev => prev.map(b => b.id === miembro.id ? { ...b, email: emailInvite.trim() } : b))
+    setStaff(prev => prev.map(b => (b.id === miembro.id ? { ...b, email: emailInvite.trim() } : b)))
     setInvitandoId(null)
     setEmailInvite('')
     toast.success('Invitación enviada por email')
     setGuardando(false)
+  }
+
+  async function vincularMiCuenta(miembro: Staff) {
+    setVinculandoId(miembro.id)
+    try {
+      const res = await fetch('/api/barberos/vincular-mi-cuenta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barbero_id: miembro.id, negocio_id: negocioId }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(typeof payload.error === 'string' ? payload.error : 'No se pudo vincular')
+        return
+      }
+      await supabase.auth.refreshSession()
+      const { data: { user } } = await supabase.auth.getUser()
+      setStaff(prev =>
+        prev.map(b =>
+          b.id === miembro.id
+            ? { ...b, user_id: user?.id ?? b.user_id, email: user?.email ?? b.email }
+            : b
+        )
+      )
+      toast.success('Tu cuenta quedó vinculada a este profesional')
+    } finally {
+      setVinculandoId(null)
+    }
   }
 
   if (cargando) return <div className="text-gray-400 text-sm">Cargando...</div>
@@ -123,6 +165,12 @@ export default function StaffPage() {
             {activos} activo{activos !== 1 ? 's' : ''}
             {capacidades?.nivel === 'basic' ? ` · máx. ${tope} en plan Básico` : ''}
             {capacidades?.nivel === 'pro' ? ' · ilimitado en tu plan' : ''}
+          </p>
+          <p className="text-xs text-gray-500 mt-2 max-w-xl">
+            Cada profesional invitado debe usar un{' '}
+            <span className="font-medium text-gray-700">correo distinto</span> al de tu cuenta de administrador. Si tú
+            también atiendes en la agenda, añade tu ficha y usa{' '}
+            <span className="font-medium text-gray-700">Vincular mi cuenta</span> (misma cuenta, sin invitar por correo).
           </p>
           {capacidades?.nivel === 'basic' && activos >= tope && (
             <p className="text-xs text-amber-800 mt-2">
@@ -196,31 +244,62 @@ export default function StaffPage() {
                     </p>
                   )}
                   {invitandoId === miembro.id && (
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        value={emailInvite}
-                        onChange={e => setEmailInvite(e.target.value)}
-                        className="input text-sm py-1.5 flex-1"
-                        placeholder="email@ejemplo.com"
-                        type="email"
-                      />
-                      <button onClick={() => enviarInvitacion(miembro)} disabled={guardando}
-                        className="px-3 py-1.5 bg-brand-600 text-white text-xs rounded-lg hover:bg-brand-700">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => { setInvitandoId(null); setEmailInvite('') }}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg">
-                        <X className="w-4 h-4" />
-                      </button>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-gray-500">
+                        Correo del profesional (no puede ser el mismo que el administrador).
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          value={emailInvite}
+                          onChange={e => setEmailInvite(e.target.value)}
+                          className="input text-sm py-1.5 flex-1"
+                          placeholder="otro-correo@ejemplo.com"
+                          type="email"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void enviarInvitacion(miembro)}
+                          disabled={guardando}
+                          className="px-3 py-1.5 bg-brand-600 text-white text-xs rounded-lg hover:bg-brand-700"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInvitandoId(null)
+                            setEmailInvite('')
+                          }}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   {!miembro.user_id && invitandoId !== miembro.id && (
-                    <button onClick={() => { setInvitandoId(miembro.id); setEmailInvite(miembro.email ?? '') }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100">
-                      <Mail className="w-3 h-3" /> Invitar
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void vincularMiCuenta(miembro)}
+                        disabled={vinculandoId === miembro.id}
+                        className="flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-brand-50 text-brand-800 rounded-lg hover:bg-brand-100 disabled:opacity-60"
+                      >
+                        {vinculandoId === miembro.id ? '…' : 'Vincular mi cuenta'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvitandoId(miembro.id)
+                          setEmailInvite(miembro.email ?? '')
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
+                      >
+                        <Mail className="w-3 h-3" /> Invitar otro correo
+                      </button>
+                    </>
                   )}
                   <button onClick={() => toggleActivo(miembro)}
                     className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${

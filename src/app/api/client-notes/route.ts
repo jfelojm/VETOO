@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createSupabaseRouteClient, jsonWithCookies } from '@/lib/supabase-route'
-import { getMiBarberoId, usuarioTieneAccesoNegocio } from '@/lib/staff-cliente-access'
+import { resolveMiBarberoId, usuarioTieneAccesoNegocio } from '@/lib/staff-cliente-access'
 
 const BUCKET = 'client-notes'
 
@@ -42,12 +42,12 @@ export async function GET(req: NextRequest) {
     return jsonWithCookies({ error: 'Cliente no encontrado' }, 404, cookiesToSet)
   }
 
-  const ok = await usuarioTieneAccesoNegocio(supabase, user.id, cliente.negocio_id)
+  const ok = await usuarioTieneAccesoNegocio(supabase, user, cliente.negocio_id)
   if (!ok) {
     return jsonWithCookies({ error: 'Sin acceso' }, 403, cookiesToSet)
   }
 
-  const miBarberoId = await getMiBarberoId(supabase, user.id)
+  const miBarberoId = await resolveMiBarberoId(supabase, user)
 
   const { data: notes, error: errNotes } = await supabase
     .from('client_notes')
@@ -121,12 +121,12 @@ export async function POST(req: NextRequest) {
     return jsonWithCookies({ error: 'Escribe el contenido de la nota' }, 400, cookiesToSet)
   }
 
-  const miBarberoId = await getMiBarberoId(supabase, user.id)
+  const miBarberoId = await resolveMiBarberoId(supabase, user)
   if (!miBarberoId) {
     return jsonWithCookies(
       {
         error:
-          'Para crear notas, tu cuenta debe estar vinculada como profesional del equipo (Equipo en el panel).',
+          'No se encontró tu perfil de profesional. Pide al dueño que te invite desde Equipo o que confirme que tu usuario tiene asignado el profesional correcto.',
       },
       403,
       cookiesToSet

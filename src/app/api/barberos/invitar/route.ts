@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getPublicAppUrl } from '@/lib/app-url'
- 
+import { emailsIguales, normalizeEmail } from '@/lib/email'
+
 export async function POST(req: NextRequest) {
   try {
     const { barbero_id, email, negocio_id } = await req.json()
- 
+
     if (!barbero_id || !email || !negocio_id) {
       return NextResponse.json({ error: 'Parámetros requeridos' }, { status: 400 })
     }
- 
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
- 
+
     // Verificar que el barbero pertenece al negocio
     const { data: barbero } = await supabase
       .from('barberos')
@@ -22,9 +23,48 @@ export async function POST(req: NextRequest) {
       .eq('id', barbero_id)
       .eq('negocio_id', negocio_id)
       .single()
- 
+
     if (!barbero) {
       return NextResponse.json({ error: 'Profesional no encontrado' }, { status: 404 })
+    }
+
+    const { data: neg } = await supabase
+      .from('negocios')
+      .select('owner_id')
+      .eq('id', negocio_id)
+      .single()
+
+    if (!neg?.owner_id) {
+      return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
+    }
+
+    const { data: ownerAuth } = await supabase.auth.admin.getUserById(neg.owner_id)
+    const ownerEmail = ownerAuth.user?.email
+    if (ownerEmail && emailsIguales(email, ownerEmail)) {
+      return NextResponse.json(
+        {
+          error:
+            'El correo del administrador no puede usarse como cuenta de profesional invitado. Usa otro correo para cada miembro del staff, o en Equipo usa «Vincular mi cuenta» si tú eres ese profesional.',
+        },
+        { status: 400 }
+      )
+    }
+
+    const { data: otrosBarberos } = await supabase
+      .from('barberos')
+      .select('id, email')
+      .eq('negocio_id', negocio_id)
+      .neq('id', barbero_id)
+
+    const invitadoNorm = normalizeEmail(email)
+    const correoDuplicadoEnStaff = (otrosBarberos ?? []).some(
+      row => row.email && normalizeEmail(row.email) === invitadoNorm
+    )
+    if (correoDuplicadoEnStaff) {
+      return NextResponse.json(
+        { error: 'Ese correo ya está asignado a otro profesional de este negocio.' },
+        { status: 400 }
+      )
     }
  
     // Hash con tokens solo existe en el cliente → /auth/confirm (no /api/auth/callback).

@@ -233,8 +233,9 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
 
       {miBarberoId === null && !cargando && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
-          Para añadir notas, tu cuenta debe estar vinculada como profesional en{' '}
-          <span className="font-medium">Equipo</span> (panel del dueño).
+          No pudimos asociar tu usuario a un profesional del equipo. Pide al dueño que revise tu ficha en{' '}
+          <span className="font-medium">Equipo</span> (correo coincidente o invitación). Cierra sesión y vuelve
+          a entrar si acabas de ser dado de alta.
         </p>
       )}
 
