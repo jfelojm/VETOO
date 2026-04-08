@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ImagePlus, Loader2, Pencil, StickyNote, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { getAuthHeadersForApi } from '@/lib/api-client-auth'
 
 export type NotaStaffApi = {
   id: string
@@ -41,13 +42,22 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
     setCargando(true)
     setError(null)
     try {
+      const auth = await getAuthHeadersForApi()
       const res = await fetch(`/api/client-notes?cliente_id=${encodeURIComponent(clienteId)}`, {
         credentials: 'include',
+        headers: { ...auth },
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error ?? 'No se pudieron cargar las notas')
+        if (res.status === 401) {
+          setError(
+            'Sesión no reconocida por el servidor. Recarga la página o vuelve a iniciar sesión.'
+          )
+        } else {
+          setError(data.error ?? 'No se pudieron cargar las notas')
+        }
         setNotas([])
+        setMiBarberoId(null)
         return
       }
       setNotas(data.notas ?? [])
@@ -55,6 +65,7 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
     } catch {
       setError('Error de red')
       setNotas([])
+      setMiBarberoId(null)
     } finally {
       setCargando(false)
     }
@@ -98,10 +109,11 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
     }
     setEnviando(true)
     try {
+      const auth = await getAuthHeadersForApi()
       const res = await fetch('/api/client-notes', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: clienteId, content: texto }),
       })
       const data = await res.json().catch(() => ({}))
@@ -115,9 +127,11 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
         for (const file of archivosPendientes.slice(0, MAX_FOTOS)) {
           const fd = new FormData()
           fd.set('file', file)
+          const authUp = await getAuthHeadersForApi()
           const up = await fetch(`/api/client-notes/${notaId}/photos`, {
             method: 'POST',
             credentials: 'include',
+            headers: { ...authUp },
             body: fd,
           })
           if (!up.ok) {
@@ -143,10 +157,11 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
     }
     setGuardandoEdit(true)
     try {
+      const auth = await getAuthHeadersForApi()
       const res = await fetch(`/api/client-notes/${editId}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: t }),
       })
       const data = await res.json().catch(() => ({}))
@@ -164,7 +179,12 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
 
   async function eliminarNota(id: string) {
     if (!confirm('¿Eliminar esta nota? Las fotos también se borrarán.')) return
-    const res = await fetch(`/api/client-notes/${id}`, { method: 'DELETE', credentials: 'include' })
+    const auth = await getAuthHeadersForApi()
+    const res = await fetch(`/api/client-notes/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { ...auth },
+    })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       toast.error(data.error ?? 'No se pudo eliminar')
@@ -192,9 +212,11 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
     }
     const fd = new FormData()
     fd.set('file', f)
+    const auth = await getAuthHeadersForApi()
     const res = await fetch(`/api/client-notes/${notaId}/photos`, {
       method: 'POST',
       credentials: 'include',
+      headers: { ...auth },
       body: fd,
     })
     const data = await res.json().catch(() => ({}))
@@ -207,9 +229,11 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
   }
 
   async function quitarFoto(notaId: string, photoId: string) {
+    const auth = await getAuthHeadersForApi()
     const res = await fetch(`/api/client-notes/${notaId}/photos/${photoId}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: { ...auth },
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -231,7 +255,7 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
         </div>
       </div>
 
-      {miBarberoId === null && !cargando && (
+      {miBarberoId === null && !cargando && !error && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
           No pudimos asociar tu usuario a un profesional del equipo. Pide al dueño que revise tu ficha en{' '}
           <span className="font-medium">Equipo</span> (correo coincidente o invitación). Cierra sesión y vuelve
