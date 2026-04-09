@@ -22,8 +22,8 @@ export function payphoneLinksUrlCandidates(): string[] {
 
 /**
  * URL de notificación por link (opcional).
- * La API Links oficial no documenta bien `notifyUrl`; si el servidor devuelve HTML,
- * deja esto sin definir y configura Notificación Externa solo en el panel PayPhone.
+ * La ruta `/api/suscripcion/pagar` intenta primero el body **sin** `notifyUrl`; si existe
+ * esta variable, hace un tercer intento con `notifyUrl`. Preferible: notificación solo en el panel PayPhone.
  */
 export function payphoneNotifyUrlDesdeEnv(): string | undefined {
   const raw = process.env.PAYPHONE_LINKS_NOTIFY_URL?.trim()

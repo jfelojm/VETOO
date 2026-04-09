@@ -173,7 +173,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const payloadCompleto: Record<string, string | number | boolean> = {
+    /** Completo con additionalData + oneTime; sin notifyUrl (notifyUrl en API a veces provoca HTML 500). */
+    const payloadCompletoSinNotify: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
       tax: montos.tax,
@@ -184,11 +185,13 @@ export async function POST(req: NextRequest) {
       additionalData,
       oneTime: true,
     }
-    if (notifyUrlOpcional) {
-      payloadCompleto.notifyUrl = notifyUrlOpcional
-    }
 
-    // Cuerpo mínimo oficial (sin additionalData / oneTime / notifyUrl) si el servidor devuelve HTML 500
+    const payloadCompletoConNotify: Record<string, string | number | boolean> | null =
+      notifyUrlOpcional
+        ? { ...payloadCompletoSinNotify, notifyUrl: notifyUrlOpcional }
+        : null
+
+    // Cuerpo mínimo oficial (sin additionalData / oneTime / notifyUrl)
     const payloadMinimo: Record<string, string | number | boolean> = {
       amount: montos.amount,
       amountWithTax: montos.amountWithTax,
@@ -204,7 +207,10 @@ export async function POST(req: NextRequest) {
     let text = ''
     let linksUrlUsada = candidatosUrl[0]
 
-    /** Por URL: primero cuerpo mínimo (menos campos = menos errores IIS), luego completo. */
+    /**
+     * Por URL: mínimo → completo sin notifyUrl → (opcional) completo con notifyUrl.
+     * Así no hace falta borrar PAYPHONE_LINKS_NOTIFY_URL en Vercel para que funcione.
+     */
     for (let intentoUrl = 0; intentoUrl < candidatosUrl.length; intentoUrl++) {
       linksUrlUsada = candidatosUrl[intentoUrl] ?? linksUrlUsada
 
@@ -219,15 +225,28 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      const intentoFull = await postPayPhone(linksUrlUsada, token, payloadCompleto)
-      payphoneRes = intentoFull.res
-      text = intentoFull.text
+      const intentoFullSin = await postPayPhone(linksUrlUsada, token, payloadCompletoSinNotify)
+      payphoneRes = intentoFullSin.res
+      text = intentoFullSin.text
       urlExtra = extraerUrlPayPhone(text)
       if (payphoneRes.ok && urlExtra) {
         return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
       }
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
         break
+      }
+
+      if (payloadCompletoConNotify) {
+        const intentoFullNotify = await postPayPhone(linksUrlUsada, token, payloadCompletoConNotify)
+        payphoneRes = intentoFullNotify.res
+        text = intentoFullNotify.text
+        urlExtra = extraerUrlPayPhone(text)
+        if (payphoneRes.ok && urlExtra) {
+          return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
+        }
+        if (payphoneRes.status === 401 || payphoneRes.status === 403) {
+          break
+        }
       }
 
       const intentarOtraRuta =
@@ -247,13 +266,13 @@ export async function POST(req: NextRequest) {
           'Token o StoreId incorrectos, o credenciales de prueba vs producción mezcladas.'
       } else if (payphoneRes.status >= 500) {
         hint =
-          'El servidor de PayPhone devolvió error (página HTML). Revisa: (1) Portal Developer → API Links activa para tu comercio. (2) Token y StoreId del mismo entorno (sandbox o producción). (3) En Vercel quita PAYPHONE_LINKS_NOTIFY_URL y configura la notificación solo en el panel PayPhone. (4) SUPABASE_SERVICE_ROLE_KEY + migración 008 para guardar la sesión del link.'
+          'El servidor de PayPhone devolvió error (página HTML). Comprueba: API Links activa en Developer; token y StoreId del mismo entorno (sandbox/producción). La app ya envía primero sin notifyUrl en el cuerpo; configura la notificación en el panel PayPhone. SUPABASE_SERVICE_ROLE_KEY + migración 008 ayudan si el webhook no recibe additionalData.'
         if (!sesionGuardada) {
-          hint += ' Sin sesión en BD, el webhook puede no saber el plan si PayPhone omite el campo additionalData.'
+          hint += ' Sin sesión en BD, el webhook puede no saber el plan si PayPhone omite additionalData.'
         }
       } else {
         hint =
-          'Quita PAYPHONE_LINKS_NOTIFY_URL en el servidor; si no, PayPhone a veces responde HTML. El webhook se configura en el panel del comercio.'
+          'Si definiste PAYPHONE_LINKS_NOTIFY_URL, la app reintenta después sin usarlo en el body; el webhook ideal es el del panel PayPhone.'
       }
       return jsonWithCookies(
         {
