@@ -513,9 +513,10 @@ export default function ServiciosPage() {
                       className="sr-only"
                       disabled={fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos}
                       onChange={e => {
-                        const files = e.target.files
+                        // Copiar antes de vaciar: si no, el FileList se limpia y la subida queda en 0 archivos (silencioso).
+                        const picked = e.target.files ? Array.from(e.target.files) : []
                         e.target.value = ''
-                        if (files?.length && editando) void subirFotos(editando.id, files)
+                        if (picked.length && editando) void subirFotos(editando.id, picked)
                       }}
                     />
                   </label>
