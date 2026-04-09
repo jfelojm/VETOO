@@ -47,6 +47,13 @@ export default function ServiciosPage() {
   const [subiendoFotos, setSubiendoFotos] = useState(false)
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
 
+  async function authHeaders(): Promise<Record<string, string>> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+  }
+
   async function recargarServicios() {
     if (!negocioId) return
     const { data } = await supabase
@@ -89,33 +96,30 @@ export default function ServiciosPage() {
 
   useEffect(() => {
     let cancelled = false
-    async function signThumbs() {
+    async function loadThumbsFromApi() {
+      const headers = await authHeaders()
       const next: Record<string, string> = {}
       for (const s of servicios) {
         const fotos = [...(s.fotos ?? [])].sort((a, b) => a.orden - b.orden)
-        const first = fotos[0]?.storage_path
-        if (first) {
-          const { data } = await supabase.storage.from('service-photos').createSignedUrl(first, 3600)
-          if (data?.signedUrl) next[s.id] = data.signedUrl
-        } else if (s.photo_url) {
-          const { data } = await supabase.storage.from('service-photos').createSignedUrl(s.photo_url, 3600)
-          if (data?.signedUrl) next[s.id] = data.signedUrl
+        if (fotos.length === 0 && !s.photo_url) continue
+        const res = await fetch(`/api/servicios/${s.id}/photos`, {
+          credentials: 'include',
+          headers,
+        })
+        if (!res.ok) continue
+        const json = (await res.json().catch(() => ({}))) as {
+          fotos?: { signedUrl?: string | null }[]
         }
+        const url = json.fotos?.[0]?.signedUrl
+        if (url) next[s.id] = url
       }
       if (!cancelled) setThumbUrls(next)
     }
-    void signThumbs()
+    void loadThumbsFromApi()
     return () => {
       cancelled = true
     }
   }, [servicios, supabase])
-
-  async function authHeaders(): Promise<Record<string, string>> {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
-  }
 
   async function cargarFotosFormulario(servicioId: string) {
     const res = await fetch(`/api/servicios/${servicioId}/photos`, {
