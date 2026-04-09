@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
+import { createAdminClient } from '@/lib/supabase/server'
 import { createSupabaseRouteClient, jsonWithCookies } from '@/lib/supabase-route'
 import {
   assertOwnerServicio,
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: gate.message }, gate.status, cookiesToSet)
   }
 
-  const { data: rows, error } = await supabase
+  const admin = createAdminClient()
+  const { data: rows, error } = await admin
     .from('servicio_fotos')
     .select('id, servicio_id, negocio_id, storage_path, orden, created_at')
     .eq('servicio_id', servicioId)
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const fotos = await Promise.all(
     (rows ?? []).map(async r => {
-      const { data: signed } = await supabase.storage
+      const { data: signed } = await admin.storage
         .from(BUCKET)
         .createSignedUrl(r.storage_path, SIGNED_URL_SECONDS_24H)
       return {
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: gate.message }, gate.status, cookiesToSet)
   }
   const { negocioId } = gate
+  const admin = createAdminClient()
 
   let form: FormData
   try {
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: 'Falta archivo (campo files o file)' }, 400, cookiesToSet)
   }
 
-  const { count: countAntes } = await supabase
+  const { count: countAntes } = await admin
     .from('servicio_fotos')
     .select('*', { count: 'exact', head: true })
     .eq('servicio_id', servicioId)
@@ -105,7 +108,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     )
   }
 
-  const { data: maxOrden } = await supabase
+  const { data: maxOrden } = await admin
     .from('servicio_fotos')
     .select('orden')
     .eq('servicio_id', servicioId)
@@ -127,15 +130,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   for (const file of files) {
     if (!ALLOWED.has(file.type)) {
       for (const c of creadas) {
-        await supabase.storage.from(BUCKET).remove([c.storage_path])
-        await supabase.from('servicio_fotos').delete().eq('id', c.id)
+        await admin.storage.from(BUCKET).remove([c.storage_path])
+        await admin.from('servicio_fotos').delete().eq('id', c.id)
       }
       return jsonWithCookies({ error: 'Solo JPG, PNG o WEBP' }, 400, cookiesToSet)
     }
     if (file.size > MAX_BYTES) {
       for (const c of creadas) {
-        await supabase.storage.from(BUCKET).remove([c.storage_path])
-        await supabase.from('servicio_fotos').delete().eq('id', c.id)
+        await admin.storage.from(BUCKET).remove([c.storage_path])
+        await admin.from('servicio_fotos').delete().eq('id', c.id)
       }
       return jsonWithCookies({ error: 'Máximo 3 MB por foto' }, 400, cookiesToSet)
     }
@@ -144,19 +147,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp'
     const storagePath = `${negocioId}/${servicioId}/${randomUUID()}.${ext}`
     const buf = Buffer.from(await file.arrayBuffer())
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(storagePath, buf, {
+    const { error: upErr } = await admin.storage.from(BUCKET).upload(storagePath, buf, {
       contentType: file.type,
       upsert: false,
     })
     if (upErr) {
       for (const c of creadas) {
-        await supabase.storage.from(BUCKET).remove([c.storage_path])
-        await supabase.from('servicio_fotos').delete().eq('id', c.id)
+        await admin.storage.from(BUCKET).remove([c.storage_path])
+        await admin.from('servicio_fotos').delete().eq('id', c.id)
       }
       return jsonWithCookies({ error: upErr.message }, 400, cookiesToSet)
     }
 
-    const { data: row, error: insErr } = await supabase
+    const { data: row, error: insErr } = await admin
       .from('servicio_fotos')
       .insert({
         servicio_id: servicioId,
@@ -168,15 +171,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .single()
 
     if (insErr || !row) {
-      await supabase.storage.from(BUCKET).remove([storagePath])
+      await admin.storage.from(BUCKET).remove([storagePath])
       for (const c of creadas) {
-        await supabase.storage.from(BUCKET).remove([c.storage_path])
-        await supabase.from('servicio_fotos').delete().eq('id', c.id)
+        await admin.storage.from(BUCKET).remove([c.storage_path])
+        await admin.from('servicio_fotos').delete().eq('id', c.id)
       }
       return jsonWithCookies({ error: insErr?.message ?? 'Error al guardar' }, 400, cookiesToSet)
     }
 
-    const { data: signed } = await supabase.storage
+    const { data: signed } = await admin.storage
       .from(BUCKET)
       .createSignedUrl(row.storage_path, SIGNED_URL_SECONDS_24H)
 

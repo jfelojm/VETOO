@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { createSupabaseRouteClient, jsonWithCookies } from '@/lib/supabase-route'
 import { assertOwnerServicio } from '@/lib/servicio-fotos-api'
 
@@ -19,6 +20,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: gate.message }, gate.status, cookiesToSet)
   }
 
+  const admin = createAdminClient()
+
   let body: { ids?: string[] }
   try {
     body = await req.json()
@@ -31,7 +34,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return jsonWithCookies({ error: 'ids debe ser un array de UUIDs' }, 400, cookiesToSet)
   }
 
-  const { data: actuales, error: qErr } = await supabase
+  const { data: actuales, error: qErr } = await admin
     .from('servicio_fotos')
     .select('id')
     .eq('servicio_id', servicioId)
@@ -46,7 +49,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   }
 
   for (let i = 0; i < ids.length; i++) {
-    const { error } = await supabase.from('servicio_fotos').update({ orden: i }).eq('id', ids[i])
+    const { error } = await admin.from('servicio_fotos').update({ orden: i }).eq('id', ids[i])
     if (error) {
       return jsonWithCookies({ error: error.message }, 400, cookiesToSet)
     }
