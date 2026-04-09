@@ -10,6 +10,16 @@ export async function guardarPayphoneLinkSession(
     return { ok: false, message: 'SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor' }
   }
   const admin = createAdminClient()
+
+  const { error: delErr } = await admin
+    .from('payphone_link_sessions')
+    .delete()
+    .eq('negocio_id', negocioId)
+  if (delErr) {
+    console.error('[payphone_link_sessions] delete previas', delErr)
+    return { ok: false, message: delErr.message }
+  }
+
   const { error } = await admin.from('payphone_link_sessions').insert({
     client_transaction_id: clientTransactionId,
     negocio_id: negocioId,

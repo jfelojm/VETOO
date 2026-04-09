@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     }
 
     const montos = PAYPHONE_PLANES[plan]
-    const clientTransactionId = clientTransactionIdPayPhone(negocioId)
+    const clientTransactionId = clientTransactionIdPayPhone()
     const additionalData = additionalDataPago(negocioId, plan)
 
     const guardado = await guardarPayphoneLinkSession(clientTransactionId, negocioId, plan)

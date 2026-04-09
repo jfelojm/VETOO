@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto'
+
 /** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithTax + tax */
 
 const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
@@ -54,9 +56,8 @@ export function additionalDataPago(negocioId: string, plan: PayPhonePlanKey): st
 }
 
 /**
- * Max 15 caracteres (PayPhone). Sin guiones; hex del UUID + milisegundos.
+ * Max 15 caracteres (PayPhone). Valor aleatorio nuevo en cada intento (evita duplicate key en BD).
  */
-export function clientTransactionIdPayPhone(negocioId: string): string {
-  const compact = negocioId.replace(/-/g, '') + Date.now().toString()
-  return compact.slice(0, 15)
+export function clientTransactionIdPayPhone(): string {
+  return randomBytes(8).toString('hex').slice(0, 15)
 }
