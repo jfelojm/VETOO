@@ -8,6 +8,7 @@ import {
   payphoneNotifyUrlDesdeEnv,
   type PayPhonePlanKey,
 } from '@/lib/payphone-config'
+import { fetchPayPhone } from '@/lib/payphone-fetch'
 import { guardarPayphoneLinkSession } from '@/lib/payphone-link-session'
 
 function sanitizarCredencialPayPhone(raw: string | undefined): string {
@@ -77,25 +78,10 @@ function extraerUrlPayPhone(text: string): string | null {
   return null
 }
 
-async function postPayPhone(
-  url: string,
-  token: string,
-  payload: Record<string, string | number | boolean>
-): Promise<{ res: Response; text: string }> {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[payphone] POST', url, JSON.stringify(payload))
+function logPagarPhase(label: string, t0: number) {
+  if (process.env.NODE_ENV === 'development' || process.env.VERCEL) {
+    console.log(`[pagar] ${label} +${Date.now() - t0}ms`)
   }
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: JSON.stringify(payload),
-  })
-  const text = await res.text()
-  return { res, text }
 }
 
 export async function POST(req: NextRequest) {
@@ -106,6 +92,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
   }
 
+  const t0 = Date.now()
   try {
     const plan = body.plan as PayPhonePlanKey | undefined
     const negocioId = body.negocio_id
@@ -147,6 +134,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return jsonWithCookies({ error: 'No autorizado' }, 401, cookiesToSet)
     }
+    logPagarPhase('auth', t0)
 
     const { data: negocio, error: negErr } = await supabase
       .from('negocios')
@@ -158,12 +146,14 @@ export async function POST(req: NextRequest) {
     if (negErr || !negocio) {
       return jsonWithCookies({ error: 'Negocio no encontrado' }, 403, cookiesToSet)
     }
+    logPagarPhase('negocio', t0)
 
     const montos = PAYPHONE_PLANES[plan]
     const clientTransactionId = clientTransactionIdPayPhone()
     const additionalData = additionalDataPago(negocioId, plan)
 
     const guardado = await guardarPayphoneLinkSession(clientTransactionId, negocioId, plan)
+    logPagarPhase('session', t0)
     const sesionGuardada = guardado.ok
     if (!sesionGuardada) {
       console.warn(
@@ -206,6 +196,7 @@ export async function POST(req: NextRequest) {
     let payphoneRes!: Response
     let text = ''
     let linksUrlUsada = candidatosUrl[0]
+    let huboTimeoutPayPhone = false
 
     /**
      * Por URL: mínimo → completo sin notifyUrl → (opcional) completo con notifyUrl.
@@ -214,22 +205,26 @@ export async function POST(req: NextRequest) {
     for (let intentoUrl = 0; intentoUrl < candidatosUrl.length; intentoUrl++) {
       linksUrlUsada = candidatosUrl[intentoUrl] ?? linksUrlUsada
 
-      const intentoMin = await postPayPhone(linksUrlUsada, token, payloadMinimo)
+      const intentoMin = await fetchPayPhone(linksUrlUsada, token, payloadMinimo)
+      if (intentoMin.aborted) huboTimeoutPayPhone = true
       payphoneRes = intentoMin.res
       text = intentoMin.text
       let urlExtra = extraerUrlPayPhone(text)
       if (payphoneRes.ok && urlExtra) {
+        logPagarPhase('payphone_ok', t0)
         return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
       }
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
         break
       }
 
-      const intentoFullSin = await postPayPhone(linksUrlUsada, token, payloadCompletoSinNotify)
+      const intentoFullSin = await fetchPayPhone(linksUrlUsada, token, payloadCompletoSinNotify)
+      if (intentoFullSin.aborted) huboTimeoutPayPhone = true
       payphoneRes = intentoFullSin.res
       text = intentoFullSin.text
       urlExtra = extraerUrlPayPhone(text)
       if (payphoneRes.ok && urlExtra) {
+        logPagarPhase('payphone_ok', t0)
         return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
       }
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
@@ -237,11 +232,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (payloadCompletoConNotify) {
-        const intentoFullNotify = await postPayPhone(linksUrlUsada, token, payloadCompletoConNotify)
+        const intentoFullNotify = await fetchPayPhone(linksUrlUsada, token, payloadCompletoConNotify)
+        if (intentoFullNotify.aborted) huboTimeoutPayPhone = true
         payphoneRes = intentoFullNotify.res
         text = intentoFullNotify.text
         urlExtra = extraerUrlPayPhone(text)
         if (payphoneRes.ok && urlExtra) {
+          logPagarPhase('payphone_ok', t0)
           return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
         }
         if (payphoneRes.status === 401 || payphoneRes.status === 403) {
@@ -259,24 +256,46 @@ export async function POST(req: NextRequest) {
       break
     }
 
+    if (payphoneRes.status === 408 || huboTimeoutPayPhone) {
+      return jsonWithCookies(
+        {
+          error: 'PayPhone no respondió a tiempo. Reintenta en unos segundos.',
+          detalle:
+            'Timeout al llamar a la API de PayPhone (límite por petición en el servidor). Si persiste, revisa conectividad o el estado de PayPhone.',
+          payphoneStatus: payphoneRes.status,
+          payphoneUrl: linksUrlUsada,
+        },
+        502,
+        cookiesToSet
+      )
+    }
+
     if (respuestaPareceHtml(text)) {
-      let hint: string
+      let errorCorto: string
+      let detalle: string
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
-        hint =
+        errorCorto =
+          'Credenciales PayPhone incorrectas o de otro entorno (pruebas vs producción). Revisa token y StoreId en Vercel.'
+        detalle =
           'Token o StoreId incorrectos, o credenciales de prueba vs producción mezcladas.'
       } else if (payphoneRes.status >= 500) {
-        hint =
-          'El servidor de PayPhone devolvió error (página HTML). Comprueba: API Links activa en Developer; token y StoreId del mismo entorno (sandbox/producción). La app ya envía primero sin notifyUrl en el cuerpo; configura la notificación en el panel PayPhone. SUPABASE_SERVICE_ROLE_KEY + migración 008 ayudan si el webhook no recibe additionalData.'
+        errorCorto =
+          'PayPhone no pudo crear el link de pago (error en su servidor). En el portal Developer activa API Links y usa token y StoreId del mismo entorno.'
+        detalle =
+          'PayPhone respondió HTML en lugar de JSON. Comprueba: API Links activa; token y StoreId sandbox/producción coherentes; notificación de pago en el panel PayPhone (no solo por variable de entorno). En la app: SUPABASE_SERVICE_ROLE_KEY + migración 008 si el webhook no recibe additionalData.'
         if (!sesionGuardada) {
-          hint += ' Sin sesión en BD, el webhook puede no saber el plan si PayPhone omite additionalData.'
+          detalle += ' Sin fila en payphone_link_sessions, el webhook puede no resolver el plan.'
         }
       } else {
-        hint =
-          'Si definiste PAYPHONE_LINKS_NOTIFY_URL, la app reintenta después sin usarlo en el body; el webhook ideal es el del panel PayPhone.'
+        errorCorto =
+          'PayPhone respondió de forma inesperada. Revisa la configuración del comercio o quita PAYPHONE_LINKS_NOTIFY_URL en Vercel.'
+        detalle =
+          'Respuesta HTML con status distinto de 500; revisar notifyUrl y panel PayPhone.'
       }
       return jsonWithCookies(
         {
-          error: `PayPhone devolvió HTML (${payphoneRes.status}). ${hint}`,
+          error: errorCorto,
+          detalle,
           payphoneStatus: payphoneRes.status,
           payphoneUrl: linksUrlUsada,
         },

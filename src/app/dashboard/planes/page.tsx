@@ -104,9 +104,9 @@ export default function PlanesPage() {
         body: JSON.stringify({ plan: planId, negocio_id: negocioId }),
       })
       const raw = await res.text()
-      let data: { url?: string; error?: string }
+      let data: { url?: string; error?: string; detalle?: string; payphoneStatus?: number }
       try {
-        data = JSON.parse(raw) as { url?: string; error?: string }
+        data = JSON.parse(raw) as { url?: string; error?: string; detalle?: string; payphoneStatus?: number }
       } catch {
         toast.error(
           'El servidor devolvió una respuesta no válida (¿HTML en lugar de JSON?). Revisa la consola de red.'
@@ -114,6 +114,9 @@ export default function PlanesPage() {
         return
       }
       if (!res.ok || !data.url) {
+        if (data.detalle) {
+          console.warn('[PayPhone]', data.detalle, { status: data.payphoneStatus })
+        }
         toast.error(data.error ?? 'No se pudo crear el pago')
         return
       }
