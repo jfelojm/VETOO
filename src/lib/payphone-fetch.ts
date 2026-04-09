@@ -30,6 +30,8 @@ export async function fetchPayPhone(
       signal: abortSignalWithTimeout(PAYPHONE_FETCH_TIMEOUT_MS),
     })
     const text = await res.text()
+    console.log('[payphone] response status:', res.status)
+    console.log('[payphone] response body:', text.substring(0, 500))
     return { res, text }
   } catch (e) {
     const name = e instanceof Error ? e.name : ''
