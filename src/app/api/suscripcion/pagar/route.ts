@@ -82,9 +82,9 @@ async function postPayPhone(
   token: string,
   payload: Record<string, string | number | boolean>
 ): Promise<{ res: Response; text: string }> {
-  console.log('PayPhone request body:', JSON.stringify(payload, null, 2))
-  console.log('PayPhone token (primeros 10 chars):', process.env.PAYPHONE_TOKEN?.substring(0, 10))
-  console.log('PayPhone storeId:', process.env.PAYPHONE_STORE_ID)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[payphone] POST', url, JSON.stringify(payload))
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -200,67 +200,60 @@ export async function POST(req: NextRequest) {
     }
 
     const candidatosUrl = payphoneLinksUrlCandidates()
-    let payphoneRes: Response
-    let text: string
+    let payphoneRes!: Response
+    let text = ''
     let linksUrlUsada = candidatosUrl[0]
 
-    let intentoUrl = 0
-    for (;;) {
+    /** Por URL: primero cuerpo mínimo (menos campos = menos errores IIS), luego completo. */
+    for (let intentoUrl = 0; intentoUrl < candidatosUrl.length; intentoUrl++) {
       linksUrlUsada = candidatosUrl[intentoUrl] ?? linksUrlUsada
-      const r = await postPayPhone(linksUrlUsada, token, payloadCompleto)
-      payphoneRes = r.res
-      text = r.text
-      const url = extraerUrlPayPhone(text)
-      if (payphoneRes.ok && url) {
-        return jsonWithCookies({ url }, 200, cookiesToSet)
+
+      const intentoMin = await postPayPhone(linksUrlUsada, token, payloadMinimo)
+      payphoneRes = intentoMin.res
+      text = intentoMin.text
+      let urlExtra = extraerUrlPayPhone(text)
+      if (payphoneRes.ok && urlExtra) {
+        return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
       }
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
         break
       }
-      const siguiente =
+
+      const intentoFull = await postPayPhone(linksUrlUsada, token, payloadCompleto)
+      payphoneRes = intentoFull.res
+      text = intentoFull.text
+      urlExtra = extraerUrlPayPhone(text)
+      if (payphoneRes.ok && urlExtra) {
+        return jsonWithCookies({ url: urlExtra }, 200, cookiesToSet)
+      }
+      if (payphoneRes.status === 401 || payphoneRes.status === 403) {
+        break
+      }
+
+      const intentarOtraRuta =
         respuestaPareceHtml(text) &&
         payphoneRes.status >= 500 &&
         intentoUrl + 1 < candidatosUrl.length
-      if (siguiente) {
-        intentoUrl += 1
+      if (intentarOtraRuta) {
         continue
       }
       break
-    }
-
-    let url = extraerUrlPayPhone(text)
-
-    const reintentarMinimo =
-      !url &&
-      payphoneRes.status !== 401 &&
-      payphoneRes.status !== 403 &&
-      (respuestaPareceHtml(text) ||
-        payphoneRes.status >= 500 ||
-        (payphoneRes.ok && !url))
-
-    if (reintentarMinimo && sesionGuardada) {
-      const segundo = await postPayPhone(linksUrlUsada, token, payloadMinimo)
-      url = extraerUrlPayPhone(segundo.text)
-      if (segundo.res.ok && url) {
-        return jsonWithCookies({ url }, 200, cookiesToSet)
-      }
-      payphoneRes = segundo.res
-      text = segundo.text
     }
 
     if (respuestaPareceHtml(text)) {
       let hint: string
       if (payphoneRes.status === 401 || payphoneRes.status === 403) {
         hint =
-          'Token o storeId incorrectos, o entorno distinto (pruebas vs producción).'
+          'Token o StoreId incorrectos, o credenciales de prueba vs producción mezcladas.'
       } else if (payphoneRes.status >= 500) {
         hint =
-          'Error en PayPhone: confirma permiso API Links en Developer, token vigente y storeId. Si sigue igual, escribe a soporte PayPhone con hora y storeId.'
+          'El servidor de PayPhone devolvió error (página HTML). Revisa: (1) Portal Developer → API Links activa para tu comercio. (2) Token y StoreId del mismo entorno (sandbox o producción). (3) En Vercel quita PAYPHONE_LINKS_NOTIFY_URL y configura la notificación solo en el panel PayPhone. (4) SUPABASE_SERVICE_ROLE_KEY + migración 008 para guardar la sesión del link.'
         if (!sesionGuardada) {
-          hint += ' Migración 008 + SUPABASE_SERVICE_ROLE_KEY activan el reintento con cuerpo mínimo.'
+          hint += ' Sin sesión en BD, el webhook puede no saber el plan si PayPhone omite el campo additionalData.'
         }
       } else {
-        hint = 'Prueba sin PAYPHONE_LINKS_NOTIFY_URL; el webhook se configura en el panel PayPhone.'
+        hint =
+          'Quita PAYPHONE_LINKS_NOTIFY_URL en el servidor; si no, PayPhone a veces responde HTML. El webhook se configura en el panel del comercio.'
       }
       return jsonWithCookies(
         {
