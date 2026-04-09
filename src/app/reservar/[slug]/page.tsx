@@ -34,12 +34,16 @@ export default async function ReservarPage({ params }: Props) {
   const supabase = createClient()
 
   // Cargar negocio con barberos y servicios
-  const { data: negocio } = await supabase
+  const admin = createAdminClient()
+  const { data: negocio } = await admin
     .from('negocios')
     .select(`
       *,
       barberos(id, nombre, foto_url, bio, activo, orden),
-      servicios(id, nombre, descripcion, duracion, precio, activo, orden, photo_url)
+      servicios(
+        id, nombre, descripcion, duracion, precio, activo, orden, photo_url,
+        servicio_fotos(id, storage_path, orden, created_at)
+      )
     `)
     .eq('slug', slug)
     .eq('activo', true)
@@ -73,14 +77,20 @@ export default async function ReservarPage({ params }: Props) {
 
   const barberos = (negocio.barberos as any[]).filter((b: any) => b.activo).sort((a: any, b: any) => a.orden - b.orden)
   const rawServicios = (negocio.servicios as any[]).filter((s: any) => s.activo).sort((a: any, b: any) => a.orden - b.orden)
-  const admin = createAdminClient()
   const servicios = await Promise.all(
     rawServicios.map(async (s: any) => {
-      if (!s.photo_url) {
-        return { ...s, photoSignedUrl: null as string | null }
+      const rows = [...(s.servicio_fotos ?? [])].sort((a: { orden: number }, b: { orden: number }) => a.orden - b.orden)
+      const fotoCarouselUrls: string[] = []
+      for (const row of rows) {
+        const { data } = await admin.storage.from('service-photos').createSignedUrl(row.storage_path, 60 * 60 * 24)
+        if (data?.signedUrl) fotoCarouselUrls.push(data.signedUrl)
       }
-      const { data } = await admin.storage.from('service-photos').createSignedUrl(s.photo_url, 60 * 60 * 24)
-      return { ...s, photoSignedUrl: data?.signedUrl ?? null }
+      if (fotoCarouselUrls.length === 0 && s.photo_url) {
+        const { data } = await admin.storage.from('service-photos').createSignedUrl(s.photo_url, 60 * 60 * 24)
+        if (data?.signedUrl) fotoCarouselUrls.push(data.signedUrl)
+      }
+      const { servicio_fotos: _sf, ...rest } = s
+      return { ...rest, fotoCarouselUrls }
     })
   )
   const tipoCfg = getTipoConfig((negocio as { tipo_negocio?: string | null }).tipo_negocio)

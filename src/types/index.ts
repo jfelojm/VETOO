@@ -72,6 +72,17 @@ export interface Barbero {
   orden:      number
 }
 
+export interface ServicioFoto {
+  id: string
+  servicio_id: string
+  negocio_id: string
+  storage_path: string
+  orden: number
+  created_at: string
+  /** Presente cuando la API devuelve URL firmada */
+  signedUrl?: string | null
+}
+
 export interface Servicio {
   id:         string
   created_at: string
@@ -82,8 +93,9 @@ export interface Servicio {
   precio:     number | null
   activo:     boolean
   orden:      number
-  /** Ruta en bucket `service-photos` (no URL pública) */
+  /** Legacy: primera foto antes de servicio_fotos; mantener nullable */
   photo_url?: string | null
+  fotos?: ServicioFoto[]
 }
 
 export interface Bloqueo {

@@ -5,22 +5,32 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Scissors, ImageIcon, X } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Scissors,
+  ImageIcon,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react'
 import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
+import type { Servicio, ServicioFoto } from '@/types'
+import { MAX_FOTOS_POR_SERVICIO } from '@/lib/servicio-fotos-api'
 
 const MAX_FOTO_BYTES = 3 * 1024 * 1024
 const MIME_FOTO = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-interface Servicio {
-  id: string
-  nombre: string
-  descripcion: string | null
-  duracion: number
-  precio: number | null
-  activo: boolean
-  orden: number
-  photo_url?: string | null
+type FotoApi = ServicioFoto & { signedUrl: string | null }
+
+function mapRowToServicio(r: Record<string, unknown>): Servicio {
+  const raw = r.servicio_fotos as ServicioFoto[] | undefined
+  const fotos = raw ? [...raw].sort((a, b) => a.orden - b.orden) : undefined
+  const { servicio_fotos: _, ...rest } = r
+  return { ...(rest as unknown as Servicio), fotos }
 }
 
 export default function ServiciosPage() {
@@ -33,9 +43,24 @@ export default function ServiciosPage() {
   const [editando, setEditando] = useState<Servicio | null>(null)
   const [form, setForm] = useState({ nombre: '', descripcion: '', duracion: '30', precio: '' })
   const [guardando, setGuardando] = useState(false)
-  const [archivoFoto, setArchivoFoto] = useState<File | null>(null)
-  const [previewLocal, setPreviewLocal] = useState<string | null>(null)
+  const [fotosEdit, setFotosEdit] = useState<FotoApi[]>([])
+  const [subiendoFotos, setSubiendoFotos] = useState(false)
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
+
+  async function recargarServicios() {
+    if (!negocioId) return
+    const { data } = await supabase
+      .from('servicios')
+      .select(
+        `
+        *,
+        servicio_fotos ( id, servicio_id, negocio_id, storage_path, orden, created_at )
+      `
+      )
+      .eq('negocio_id', negocioId)
+      .order('orden')
+    setServicios((data ?? []).map(row => mapRowToServicio(row as Record<string, unknown>)))
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -46,8 +71,17 @@ export default function ServiciosPage() {
       const { data: neg } = await supabase.from('negocios').select('id').eq('owner_id', user.id).single()
       if (!neg) return
       setNegocioId(neg.id)
-      const { data } = await supabase.from('servicios').select('*').eq('negocio_id', neg.id).order('orden')
-      setServicios(data ?? [])
+      const { data } = await supabase
+        .from('servicios')
+        .select(
+          `
+          *,
+          servicio_fotos ( id, servicio_id, negocio_id, storage_path, orden, created_at )
+        `
+        )
+        .eq('negocio_id', neg.id)
+        .order('orden')
+      setServicios((data ?? []).map(row => mapRowToServicio(row as Record<string, unknown>)))
       setCargando(false)
     }
     cargar()
@@ -58,13 +92,17 @@ export default function ServiciosPage() {
     async function signThumbs() {
       const next: Record<string, string> = {}
       for (const s of servicios) {
-        if (!s.photo_url) continue
-        const { data } = await supabase.storage.from('service-photos').createSignedUrl(s.photo_url, 3600)
-        if (data?.signedUrl) next[s.id] = data.signedUrl
+        const fotos = [...(s.fotos ?? [])].sort((a, b) => a.orden - b.orden)
+        const first = fotos[0]?.storage_path
+        if (first) {
+          const { data } = await supabase.storage.from('service-photos').createSignedUrl(first, 3600)
+          if (data?.signedUrl) next[s.id] = data.signedUrl
+        } else if (s.photo_url) {
+          const { data } = await supabase.storage.from('service-photos').createSignedUrl(s.photo_url, 3600)
+          if (data?.signedUrl) next[s.id] = data.signedUrl
+        }
       }
-      if (!cancelled) {
-        setThumbUrls(next)
-      }
+      if (!cancelled) setThumbUrls(next)
     }
     void signThumbs()
     return () => {
@@ -79,74 +117,99 @@ export default function ServiciosPage() {
     return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
   }
 
-  async function subirFotoApi(servicioId: string, file: File): Promise<boolean> {
+  async function cargarFotosFormulario(servicioId: string) {
+    const res = await fetch(`/api/servicios/${servicioId}/photos`, {
+      credentials: 'include',
+      headers: await authHeaders(),
+    })
+    const json = (await res.json().catch(() => ({}))) as { fotos?: FotoApi[]; error?: string }
+    if (!res.ok) {
+      toast.error(json.error ?? 'No se pudieron cargar las fotos')
+      setFotosEdit([])
+      return
+    }
+    setFotosEdit(json.fotos ?? [])
+  }
+
+  async function subirFotos(servicioId: string, files: FileList | File[]) {
+    const arr = Array.from(files)
+    if (arr.length === 0) return
+    if (fotosEdit.length + arr.length > MAX_FOTOS_POR_SERVICIO) {
+      toast.error(`Máximo ${MAX_FOTOS_POR_SERVICIO} fotos por servicio`)
+      return
+    }
+    setSubiendoFotos(true)
     const form = new FormData()
-    form.append('file', file)
-    const res = await fetch(`/api/servicios/${servicioId}/photo`, {
+    for (const f of arr) {
+      if (!MIME_FOTO.has(f.type)) {
+        toast.error('Usa JPG, PNG o WEBP')
+        setSubiendoFotos(false)
+        return
+      }
+      if (f.size > MAX_FOTO_BYTES) {
+        toast.error('Máximo 3 MB por foto')
+        setSubiendoFotos(false)
+        return
+      }
+      form.append('files', f)
+    }
+    const res = await fetch(`/api/servicios/${servicioId}/photos`, {
       method: 'POST',
       credentials: 'include',
       headers: await authHeaders(),
       body: form,
     })
-    const json = (await res.json().catch(() => ({}))) as {
-      error?: string
-      photo_url?: string
-      signedUrl?: string | null
-    }
+    const json = (await res.json().catch(() => ({}))) as { error?: string }
     if (!res.ok) {
-      toast.error(json.error ?? 'No se pudo subir la foto')
-      return false
+      toast.error(json.error ?? 'Error al subir')
+      setSubiendoFotos(false)
+      return
     }
-    if (json.photo_url) {
-      setServicios(prev => prev.map(s => (s.id === servicioId ? { ...s, photo_url: json.photo_url! } : s)))
-      if (json.signedUrl) {
-        setThumbUrls(prev => ({ ...prev, [servicioId]: json.signedUrl! }))
-      }
-    }
-    return true
+    toast.success('Fotos actualizadas')
+    await cargarFotosFormulario(servicioId)
+    await recargarServicios()
+    setSubiendoFotos(false)
   }
 
-  async function eliminarFotoApi(servicioId: string): Promise<boolean> {
-    const res = await fetch(`/api/servicios/${servicioId}/photo`, {
+  async function eliminarFoto(servicioId: string, photoId: string) {
+    const res = await fetch(`/api/servicios/${servicioId}/photos/${photoId}`, {
       method: 'DELETE',
       credentials: 'include',
       headers: await authHeaders(),
     })
     const json = (await res.json().catch(() => ({}))) as { error?: string }
     if (!res.ok) {
-      toast.error(json.error ?? 'No se pudo eliminar la foto')
-      return false
+      toast.error(json.error ?? 'No se pudo eliminar')
+      return
     }
-    setServicios(prev => prev.map(s => (s.id === servicioId ? { ...s, photo_url: null } : s)))
-    setThumbUrls(prev => {
-      const n = { ...prev }
-      delete n[servicioId]
-      return n
+    await cargarFotosFormulario(servicioId)
+    await recargarServicios()
+  }
+
+  async function reordenar(servicioId: string, ids: string[]) {
+    const res = await fetch(`/api/servicios/${servicioId}/photos/reorder`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ ids }),
     })
-    return true
-  }
-
-  function onArchivoFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    if (!MIME_FOTO.has(f.type)) {
-      toast.error('Usa JPG, PNG o WEBP')
+    const json = (await res.json().catch(() => ({}))) as { error?: string }
+    if (!res.ok) {
+      toast.error(json.error ?? 'No se pudo reordenar')
       return
     }
-    if (f.size > MAX_FOTO_BYTES) {
-      toast.error('Máximo 3 MB')
-      return
-    }
-    if (previewLocal) URL.revokeObjectURL(previewLocal)
-    setArchivoFoto(f)
-    setPreviewLocal(URL.createObjectURL(f))
+    await cargarFotosFormulario(servicioId)
+    await recargarServicios()
   }
 
-  function limpiarFotoPendiente() {
-    if (previewLocal) URL.revokeObjectURL(previewLocal)
-    setPreviewLocal(null)
-    setArchivoFoto(null)
+  function moverFoto(servicioId: string, photoId: string, delta: number) {
+    const ids = fotosEdit.map(f => f.id)
+    const i = ids.indexOf(photoId)
+    const j = i + delta
+    if (i < 0 || j < 0 || j >= ids.length) return
+    const next = [...ids]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    void reordenar(servicioId, next)
   }
 
   async function guardar() {
@@ -167,8 +230,6 @@ export default function ServiciosPage() {
       precio: form.precio ? Number(form.precio) : null,
     }
 
-    let servicioIdParaFoto: string | null = null
-
     if (editando) {
       const { error } = await supabase.from('servicios').update(payload).eq('id', editando.id)
       if (error) {
@@ -176,9 +237,9 @@ export default function ServiciosPage() {
         setGuardando(false)
         return
       }
-      setServicios(prev => prev.map(s => (s.id === editando.id ? { ...s, ...payload } : s)))
-      servicioIdParaFoto = editando.id
+      await recargarServicios()
       toast.success('Servicio actualizado')
+      cancelar()
     } else {
       const tope = capacidades?.maxServicios ?? 999
       if (servicios.length >= tope) {
@@ -193,25 +254,25 @@ export default function ServiciosPage() {
           negocio_id: negocioId,
           orden: servicios.length,
         })
-        .select()
+        .select(
+          `
+          *,
+          servicio_fotos ( id, servicio_id, negocio_id, storage_path, orden, created_at )
+        `
+        )
         .single()
       if (error || !data) {
         toast.error('Error al guardar')
         setGuardando(false)
         return
       }
-      setServicios(prev => [...prev, data as Servicio])
-      servicioIdParaFoto = data.id
-      toast.success('Servicio agregado')
+      const nuevo = mapRowToServicio(data as Record<string, unknown>)
+      setServicios(prev => [...prev, nuevo])
+      setEditando(nuevo)
+      toast.success('Servicio agregado. Puedes subir hasta 5 fotos.')
+      void cargarFotosFormulario(nuevo.id)
     }
 
-    if (servicioIdParaFoto && archivoFoto) {
-      const ok = await subirFotoApi(servicioIdParaFoto, archivoFoto)
-      if (ok) toast.success('Foto guardada')
-      limpiarFotoPendiente()
-    }
-
-    cancelar()
     setGuardando(false)
   }
 
@@ -221,16 +282,18 @@ export default function ServiciosPage() {
       toast.error('Error')
       return
     }
-    setServicios(prev => prev.map(x => (x.id === s.id ? { ...x, activo: !x.activo } : x)))
+    await recargarServicios()
     toast.success(s.activo ? 'Servicio desactivado' : 'Servicio activado')
   }
 
   async function eliminar(id: string) {
     if (!confirm('¿Eliminar este servicio?')) return
     const s = servicios.find(x => x.id === id)
-    if (s?.photo_url) {
-      const fotoOk = await eliminarFotoApi(id)
-      if (!fotoOk) return
+    const paths = new Set<string>()
+    for (const f of s?.fotos ?? []) paths.add(f.storage_path)
+    if (s?.photo_url) paths.add(s.photo_url)
+    for (const p of paths) {
+      await supabase.storage.from('service-photos').remove([p])
     }
     const { error } = await supabase.from('servicios').delete().eq('id', id)
     if (error) {
@@ -242,7 +305,6 @@ export default function ServiciosPage() {
   }
 
   function abrirEditar(s: Servicio) {
-    limpiarFotoPendiente()
     setEditando(s)
     setForm({
       nombre: s.nombre,
@@ -251,29 +313,28 @@ export default function ServiciosPage() {
       precio: s.precio ? String(s.precio) : '',
     })
     setMostrarForm(true)
+    void cargarFotosFormulario(s.id)
   }
 
   function cancelar() {
-    limpiarFotoPendiente()
     setMostrarForm(false)
     setEditando(null)
     setForm({ nombre: '', descripcion: '', duracion: '30', precio: '' })
+    setFotosEdit([])
   }
 
-  async function quitarFotoExistente() {
-    if (!editando) return
-    const ok = await eliminarFotoApi(editando.id)
-    if (ok) toast.success('Foto eliminada')
-    limpiarFotoPendiente()
-    setEditando(prev => (prev ? { ...prev, photo_url: null } : null))
+  function nuevoServicio() {
+    setEditando(null)
+    setForm({ nombre: '', descripcion: '', duracion: '30', precio: '' })
+    setFotosEdit([])
+    setMostrarForm(true)
   }
 
   if (cargando) return <div className="text-gray-400 text-sm">Cargando...</div>
 
   const topeServ = capacidades?.maxServicios ?? 999
   const puedeNuevoServicio = capacidades?.puedeOperarNegocio && servicios.length < topeServ
-
-  const previewFormSrc = previewLocal ?? (editando?.id ? thumbUrls[editando.id] : null)
+  const fotosCount = editando ? fotosEdit.length : 0
 
   return (
     <RequierePlanOperativo>
@@ -299,7 +360,7 @@ export default function ServiciosPage() {
             <button
               type="button"
               disabled={!puedeNuevoServicio}
-              onClick={() => puedeNuevoServicio && setMostrarForm(true)}
+              onClick={() => puedeNuevoServicio && nuevoServicio()}
               className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" /> Agregar servicio
@@ -359,55 +420,91 @@ export default function ServiciosPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="label">Foto del servicio</label>
-                <p className="text-xs text-gray-500 mb-2">JPG, PNG o WEBP · máx. 3 MB</p>
-                <div className="flex flex-wrap items-start gap-4">
-                  <div className="w-24 h-24 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0">
-                    {previewFormSrc ? (
-                      <Image
-                        src={previewFormSrc}
-                        alt={editando?.nombre ? `Vista previa · ${editando.nombre}` : 'Vista previa'}
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <Scissors className="w-10 h-10 text-gray-300" aria-hidden />
-                    )}
+              {editando && (
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="label mb-0">Fotos del servicio</label>
+                    <span className="text-xs font-medium text-gray-500">
+                      {fotosCount}/{MAX_FOTOS_POR_SERVICIO} fotos
+                    </span>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="btn-secondary inline-flex items-center gap-2 cursor-pointer w-fit">
-                      <ImageIcon className="w-4 h-4" />
-                      Elegir imagen
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="sr-only"
-                        onChange={onArchivoFotoChange}
-                      />
-                    </label>
-                    {(archivoFoto || (editando?.photo_url && !previewLocal)) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (archivoFoto) limpiarFotoPendiente()
-                          else if (editando?.photo_url) void quitarFotoExistente()
-                        }}
-                        className="text-sm text-red-600 hover:underline inline-flex items-center gap-1"
+                  <p className="text-xs text-gray-500 mb-3">JPG, PNG o WEBP · máx. 3 MB cada una</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                    {fotosEdit.map((f, idx) => (
+                      <div
+                        key={f.id}
+                        className="relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50 aspect-square min-h-[120px]"
                       >
-                        <X className="w-3.5 h-3.5" />
-                        {archivoFoto ? 'Quitar imagen nueva' : 'Eliminar foto actual'}
-                      </button>
-                    )}
+                        {f.signedUrl ? (
+                          <Image
+                            src={f.signedUrl}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            unoptimized
+                            sizes="(max-width: 640px) 50vw, 120px"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Scissors className="w-8 h-8 text-gray-300" />
+                          </div>
+                        )}
+                        <div className="absolute top-1 right-1 flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => moverFoto(editando.id, f.id, -1)}
+                            className="p-1 rounded bg-white/90 shadow border border-gray-200 disabled:opacity-30"
+                            aria-label="Subir en el carrusel"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx >= fotosEdit.length - 1}
+                            onClick={() => moverFoto(editando.id, f.id, 1)}
+                            className="p-1 rounded bg-white/90 shadow border border-gray-200 disabled:opacity-30"
+                            aria-label="Bajar en el carrusel"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void eliminarFoto(editando.id, f.id)}
+                          className="absolute bottom-1 left-1 right-1 text-xs py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                  <label
+                    className={`btn-secondary inline-flex items-center gap-2 cursor-pointer w-fit ${
+                      fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    {subiendoFotos ? 'Subiendo…' : 'Agregar fotos'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      className="sr-only"
+                      disabled={fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos}
+                      onChange={e => {
+                        const files = e.target.files
+                        e.target.value = ''
+                        if (files?.length && editando) void subirFotos(editando.id, files)
+                      }}
+                    />
+                  </label>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-3">
                 <button onClick={() => void guardar()} disabled={guardando} className="btn-primary">
-                  {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar'}
+                  {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar y continuar'}
                 </button>
                 <button onClick={cancelar} className="btn-secondary">
                   Cancelar
@@ -424,7 +521,7 @@ export default function ServiciosPage() {
             <button
               type="button"
               disabled={!puedeNuevoServicio}
-              onClick={() => puedeNuevoServicio && setMostrarForm(true)}
+              onClick={() => puedeNuevoServicio && nuevoServicio()}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4 inline mr-2" /> Agregar el primero
