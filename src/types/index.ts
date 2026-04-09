@@ -82,6 +82,8 @@ export interface Servicio {
   precio:     number | null
   activo:     boolean
   orden:      number
+  /** Ruta en bucket `service-photos` (no URL pública) */
+  photo_url?: string | null
 }
 
 export interface Bloqueo {

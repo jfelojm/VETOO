@@ -9,7 +9,7 @@ import {
  * El comercio debe registrar en PayPhone la URL completa que termina en este path
  * (el método debe llamarse NotificacionPago según documentación PayPhone).
  *
- * AdditionalData: `negocioId|plan` (basic|pro). Parseo en `parsePlanDesdeAdditionalData` (payphone-webhook).
+ * AdditionalData: `negocioId|plan` (basic|pro|premium). Parseo en `parsePlanDesdeAdditionalData` (payphone-webhook).
  */
 export async function POST(req: NextRequest) {
   let body: PayPhoneNotificacionBody

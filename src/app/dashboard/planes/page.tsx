@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Check, Loader2, CreditCard } from 'lucide-react'
 import { differenceInCalendarDays, isAfter, parseISO } from 'date-fns'
 
-type PlanKey = 'basic' | 'pro'
+type PlanKey = 'basic' | 'pro' | 'premium'
 
 const PLANES_UI: {
   id: PlanKey
@@ -15,6 +15,7 @@ const PLANES_UI: {
   precioBaseUsd: number
   totalConIvaUsd: number
   features: string[]
+  proximamente?: boolean
 }[] = [
   {
     id: 'basic',
@@ -42,6 +43,18 @@ const PLANES_UI: {
       'Todo lo del plan Básico y más',
     ],
   },
+  {
+    id: 'premium',
+    nombre: 'Premium',
+    precioBaseUsd: 150,
+    totalConIvaUsd: 172.5,
+    proximamente: true,
+    features: [
+      'Todo lo incluido en Pro',
+      'Agente IA para WhatsApp 24/7',
+      'Recepcionista virtual que agenda, modifica y cancela reservas automáticamente',
+    ],
+  },
 ]
 
 function etiquetaPlan(plan: string | null | undefined): string {
@@ -49,7 +62,8 @@ function etiquetaPlan(plan: string | null | undefined): string {
   const p = plan.toLowerCase()
   if (p === 'trial') return 'Prueba'
   if (p === 'basic') return 'Básico'
-  if (p === 'pro' || p === 'premium') return 'Pro'
+  if (p === 'pro') return 'Pro'
+  if (p === 'premium') return 'Premium'
   if (p === 'cancelled') return 'Cancelado'
   return plan
 }
@@ -205,7 +219,7 @@ export default function PlanesPage() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
         {PLANES_UI.map(p => (
           <div
             key={p.id}
@@ -213,7 +227,14 @@ export default function PlanesPage() {
               plan === p.id ? 'border-brand-400 ring-1 ring-brand-100' : 'border-gray-100'
             }`}
           >
-            <h2 className="text-lg font-bold text-gray-900">{p.nombre}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900">{p.nombre}</h2>
+              {p.proximamente && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-900 text-xs font-semibold px-2.5 py-0.5 border border-amber-200">
+                  Próximamente
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               ${p.precioBaseUsd.toFixed(2)} USD/mes + IVA 15%
             </p>
@@ -229,20 +250,30 @@ export default function PlanesPage() {
                 </li>
               ))}
             </ul>
-            <button
-              type="button"
-              disabled={checkoutPlan !== null}
-              onClick={() => void suscribir(p.id)}
-              className="btn-primary w-full mt-6 flex items-center justify-center gap-2"
-            >
-              {checkoutPlan === p.id ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo a PayPhone…
-                </>
-              ) : (
-                'Suscribirse'
-              )}
-            </button>
+            {p.proximamente ? (
+              <button
+                type="button"
+                disabled
+                className="btn-primary w-full mt-6 opacity-60 cursor-not-allowed"
+              >
+                Próximamente
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={checkoutPlan !== null}
+                onClick={() => void suscribir(p.id)}
+                className="btn-primary w-full mt-6 flex items-center justify-center gap-2"
+              >
+                {checkoutPlan === p.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo a PayPhone…
+                  </>
+                ) : (
+                  'Suscribirse'
+                )}
+              </button>
+            )}
           </div>
         ))}
       </div>

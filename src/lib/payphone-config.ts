@@ -47,6 +47,12 @@ export const PAYPHONE_PLANES = {
     amountWithTax: 3900,
     tax: 585,
   },
+  premium: {
+    reference: 'Turnapp Plan Premium',
+    amount: 17250,
+    amountWithTax: 15000,
+    tax: 2250,
+  },
 } as const
 
 export type PayPhonePlanKey = keyof typeof PAYPHONE_PLANES

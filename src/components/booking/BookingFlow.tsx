@@ -7,15 +7,18 @@ import { z } from 'zod'
 import { format, addDays, startOfDay, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
+import Image from 'next/image'
 import { ChevronLeft, CheckCircle, Clock, Scissors, User, Calendar } from 'lucide-react'
 import type { Negocio, Barbero, Servicio, SlotDisponible } from '@/types'
 import { formatPrecio } from '@/lib/utils'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
 
+type ServicioConFoto = Servicio & { photoSignedUrl?: string | null }
+
 interface Props {
   negocio: Negocio & { horario: any }
   barberos: Barbero[]
-  servicios: Servicio[]
+  servicios: ServicioConFoto[]
 }
 
 function telDigitos(s: string) {
@@ -226,16 +229,33 @@ export default function BookingFlow({ negocio, barberos, servicios }: Props) {
               <button key={s.id} onClick={() => { setServicioId(s.id); setPaso('barbero') }}
                 className={`w-full text-left p-4 rounded-xl border transition-all
                   ${servicioId === s.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-gray-900">{s.nombre}</p>
-                    {s.descripcion && <p className="text-sm text-gray-500 mt-0.5">{s.descripcion}</p>}
+                <div className="flex gap-3 items-start">
+                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-xl bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center border border-gray-100">
+                    {s.photoSignedUrl ? (
+                      <Image
+                        src={s.photoSignedUrl}
+                        alt={s.nombre}
+                        width={144}
+                        height={144}
+                        className="w-full h-full object-cover"
+                        sizes="(max-width: 640px) 64px, 72px"
+                        unoptimized
+                      />
+                    ) : (
+                      <Scissors className="w-7 h-7 text-gray-300" aria-hidden />
+                    )}
                   </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <p className="text-sm font-medium text-gray-700">{formatPrecio(s.precio)}</p>
-                    <p className="text-xs text-gray-400 flex items-center gap-1 justify-end">
-                      <Clock className="w-3 h-3" /> {s.duracion} min
-                    </p>
+                  <div className="flex justify-between items-start flex-1 min-w-0 gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900">{s.nombre}</p>
+                      {s.descripcion && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{s.descripcion}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-medium text-gray-700">{formatPrecio(s.precio)}</p>
+                      <p className="text-xs text-gray-400 flex items-center gap-1 justify-end mt-0.5">
+                        <Clock className="w-3 h-3" /> {s.duracion} min
+                      </p>
+                    </div>
                   </div>
                 </div>
               </button>

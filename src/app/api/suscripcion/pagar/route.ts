@@ -97,8 +97,8 @@ export async function POST(req: NextRequest) {
     const plan = body.plan as PayPhonePlanKey | undefined
     const negocioId = body.negocio_id
 
-    if (plan !== 'basic' && plan !== 'pro') {
-      return NextResponse.json({ error: 'plan debe ser basic o pro' }, { status: 400 })
+    if (plan !== 'basic' && plan !== 'pro' && plan !== 'premium') {
+      return NextResponse.json({ error: 'plan debe ser basic, pro o premium' }, { status: 400 })
     }
     if (!negocioId || typeof negocioId !== 'string') {
       return NextResponse.json({ error: 'negocio_id requerido' }, { status: 400 })

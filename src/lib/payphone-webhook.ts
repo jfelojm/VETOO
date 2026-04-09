@@ -26,12 +26,12 @@ function parsePlanDesdeAdditionalData(
 ): { negocioId: string; plan: PayPhonePlanKey } | null {
   if (!raw || typeof raw !== 'string') return null
   const [negocioId, plan] = raw.split('|')
-  if (negocioId && plan && (plan === 'basic' || plan === 'pro')) {
+  if (negocioId && plan && (plan === 'basic' || plan === 'pro' || plan === 'premium')) {
     return { negocioId, plan }
   }
   try {
     const o = JSON.parse(raw) as { n?: string; p?: string }
-    if (o.n && (o.p === 'basic' || o.p === 'pro')) {
+    if (o.n && (o.p === 'basic' || o.p === 'pro' || o.p === 'premium')) {
       return { negocioId: o.n, plan: o.p }
     }
   } catch {
@@ -81,7 +81,10 @@ export async function procesarNotificacionPayPhone(
       .select('negocio_id, plan')
       .eq('client_transaction_id', body.ClientTransactionId)
       .maybeSingle()
-    if (sesion?.negocio_id && (sesion.plan === 'basic' || sesion.plan === 'pro')) {
+    if (
+      sesion?.negocio_id &&
+      (sesion.plan === 'basic' || sesion.plan === 'pro' || sesion.plan === 'premium')
+    ) {
       parsed = { negocioId: sesion.negocio_id, plan: sesion.plan }
     }
   }
