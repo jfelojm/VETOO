@@ -155,8 +155,8 @@ async function executeTool(
         .limit(5)
       if (!reservas || reservas.length === 0) return 'No hay reservas anteriores.'
       const lines = reservas.map(
-        (r: { id: string; fecha_hora: string; estado: string; servicios: { nombre: string } | null }) =>
-          `- ${r.fecha_hora} | ${r.servicios?.nombre ?? 'Servicio'} | ${r.estado} (ID: ${r.id})`
+        (r: { id: string; fecha_hora: string; estado: string; servicios: { nombre: string }[] | null }) =>
+          `- ${r.fecha_hora} | ${r.servicios?.[0]?.nombre ?? 'Servicio'} | ${r.estado} (ID: ${r.id})`
       )
       return `Últimas reservas:\n${lines.join('\n')}`
     }
