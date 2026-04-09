@@ -8,9 +8,9 @@ import {
   MAX_FOTOS_POR_SERVICIO,
   SIGNED_URL_SECONDS_24H,
 } from '@/lib/servicio-fotos-api'
+import { extFromMime, inferImageMime } from '@/lib/servicio-fotos-mime'
 
 const MAX_BYTES = 3 * 1024 * 1024
-const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 type RouteParams = { params: Promise<{ servicioId: string }> }
 
@@ -128,7 +128,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   }[] = []
 
   for (const file of files) {
-    if (!ALLOWED.has(file.type)) {
+    const mime = inferImageMime(file)
+    if (!mime) {
       for (const c of creadas) {
         await admin.storage.from(BUCKET).remove([c.storage_path])
         await admin.from('servicio_fotos').delete().eq('id', c.id)
@@ -143,12 +144,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return jsonWithCookies({ error: 'Máximo 3 MB por foto' }, 400, cookiesToSet)
     }
 
-    const ext =
-      file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp'
+    const ext = extFromMime(mime)
     const storagePath = `${negocioId}/${servicioId}/${randomUUID()}.${ext}`
     const buf = Buffer.from(await file.arrayBuffer())
     const { error: upErr } = await admin.storage.from(BUCKET).upload(storagePath, buf, {
-      contentType: file.type,
+      contentType: mime,
       upsert: false,
     })
     if (upErr) {

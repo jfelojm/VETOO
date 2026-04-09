@@ -20,9 +20,9 @@ import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
 import type { Servicio, ServicioFoto } from '@/types'
 import { MAX_FOTOS_POR_SERVICIO } from '@/lib/servicio-fotos-api'
+import { inferImageMime } from '@/lib/servicio-fotos-mime'
 
 const MAX_FOTO_BYTES = 3 * 1024 * 1024
-const MIME_FOTO = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 type FotoApi = ServicioFoto & { signedUrl: string | null }
 
@@ -145,7 +145,7 @@ export default function ServiciosPage() {
     setSubiendoFotos(true)
     const form = new FormData()
     for (const f of arr) {
-      if (!MIME_FOTO.has(f.type)) {
+      if (!inferImageMime(f)) {
         toast.error('Usa JPG, PNG o WEBP')
         setSubiendoFotos(false)
         return
@@ -163,9 +163,15 @@ export default function ServiciosPage() {
       headers: await authHeaders(),
       body: form,
     })
-    const json = (await res.json().catch(() => ({}))) as { error?: string }
+    const text = await res.text()
+    let json: { error?: string } = {}
+    try {
+      json = JSON.parse(text) as { error?: string }
+    } catch {
+      /* HTML o texto plano */
+    }
     if (!res.ok) {
-      toast.error(json.error ?? 'Error al subir')
+      toast.error(json.error ?? (text ? text.slice(0, 160) : `Error ${res.status}`))
       setSubiendoFotos(false)
       return
     }
@@ -242,8 +248,18 @@ export default function ServiciosPage() {
         return
       }
       await recargarServicios()
+      setEditando(prev =>
+        prev && prev.id === editando.id
+          ? {
+              ...prev,
+              nombre: payload.nombre,
+              descripcion: payload.descripcion,
+              duracion: payload.duracion,
+              precio: payload.precio,
+            }
+          : prev
+      )
       toast.success('Servicio actualizado')
-      cancelar()
     } else {
       const tope = capacidades?.maxServicios ?? 999
       if (servicios.length >= tope) {
