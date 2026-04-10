@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
     /** Completo con additionalData + oneTime; sin notifyUrl (notifyUrl en API a veces provoca HTML 500). */
     const payloadCompletoSinNotify: Record<string, string | number | boolean> = {
       amount: montos.amount,
-      amountWithTax: montos.amountWithTax,
+      amountWithoutTax: montos.amountWithoutTax,
       tax: montos.tax,
       currency: 'USD',
       reference: montos.reference,
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     // Cuerpo mínimo oficial (sin additionalData / oneTime / notifyUrl)
     const payloadMinimo: Record<string, string | number | boolean> = {
       amount: montos.amount,
-      amountWithTax: montos.amountWithTax,
+      amountWithoutTax: montos.amountWithoutTax,
       tax: montos.tax,
       currency: 'USD',
       reference: montos.reference,

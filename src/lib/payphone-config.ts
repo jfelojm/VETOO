@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto'
 
-/** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithTax + tax */
+/** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithoutTax + tax (PayPhone). */
 
 const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
 
@@ -37,20 +37,20 @@ export const PAYPHONE_PLANES = {
     reference: 'TurnBasico',
     /** Total a cobrar */
     amount: 2185,
-    /** Base gravada (sin IVA) */
-    amountWithTax: 1900,
+    /** Base gravada (sin IVA) — campo API: amountWithoutTax */
+    amountWithoutTax: 1900,
     tax: 285,
   },
   pro: {
     reference: 'TurnPro',
     amount: 4485,
-    amountWithTax: 3900,
+    amountWithoutTax: 3900,
     tax: 585,
   },
   premium: {
     reference: 'TurnPremi',
     amount: 17250,
-    amountWithTax: 15000,
+    amountWithoutTax: 15000,
     tax: 2250,
   },
 } as const
