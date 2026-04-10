@@ -1,6 +1,9 @@
 import { randomBytes } from 'crypto'
 
-/** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithoutTax + tax (PayPhone). */
+/**
+ * Montos en centavos (USD). PayPhone exige `tax` junto con `amountWithTax`.
+ * TurnApp: todo el cobro grava IVA → amountWithoutTax = 0; amount = amountWithTax + tax + amountWithoutTax.
+ */
 
 const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
 
@@ -37,20 +40,24 @@ export const PAYPHONE_PLANES = {
     reference: 'TurnBasico',
     /** Total a cobrar */
     amount: 2185,
-    /** Base gravada (sin IVA) — campo API: amountWithoutTax */
-    amountWithoutTax: 1900,
+    /** Base gravada (monto con impuesto / categoría gravada; sin incluir el impuesto en el valor) */
+    amountWithTax: 1900,
+    /** Monto no gravado (en TurnApp todo lleva IVA) */
+    amountWithoutTax: 0,
     tax: 285,
   },
   pro: {
     reference: 'TurnPro',
     amount: 4485,
-    amountWithoutTax: 3900,
+    amountWithTax: 3900,
+    amountWithoutTax: 0,
     tax: 585,
   },
   premium: {
     reference: 'TurnPremi',
     amount: 17250,
-    amountWithoutTax: 15000,
+    amountWithTax: 15000,
+    amountWithoutTax: 0,
     tax: 2250,
   },
 } as const
