@@ -567,7 +567,6 @@ export default function BarberoDashboard() {
                 setPanel(panel === 'nueva-reserva' ? null : 'nueva-reserva')
                 setNuevaPaso('servicio')
                 setServicioId('')
-                setNrBarberoDestinoId(barbero.id)
               }}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                 panel === 'nueva-reserva'
