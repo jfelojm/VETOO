@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/server'
 import { addDays, addMinutes } from 'date-fns'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { z } from 'zod'
@@ -223,9 +224,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Enviar emails directamente
+    const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
     try {
       const { Resend } = await import('resend')
       const resend = new Resend(process.env.RESEND_API_KEY)
+
+      let emailAdministrador = negocio.email?.trim() || null
+      if (!emailAdministrador) {
+        const admin = createAdminClient()
+        const { data: ownerAuth } = await admin.auth.admin.getUserById(negocio.owner_id)
+        emailAdministrador = ownerAuth?.user?.email?.trim() ?? null
+      }
       const { data: cliente } = await supabase
         .from('clientes').select('nombre, telefono, email').eq('id', clienteId).single()
       const { data: barbero } = await supabase
@@ -246,10 +255,10 @@ export async function POST(req: NextRequest) {
       const telTxt = cliente?.telefono ? String(cliente.telefono) : '—'
       const mailTxt = cliente?.email ? String(cliente.email) : '—'
 
-      if (negocio.email) {
+      if (emailAdministrador) {
         await resend.emails.send({
-          from: 'onboarding@resend.dev',
-          to: negocio.email,
+          from: FROM,
+          to: emailAdministrador,
           subject: `Nueva reserva — ${nombreReserva}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
             <h2 style="color:#e05f10;">Nueva reserva recibida</h2>
@@ -269,7 +278,7 @@ export async function POST(req: NextRequest) {
       const barberoEmail = (barbero as { nombre?: string; email?: string | null } | null)?.email?.trim()
       if (barberoEmail) {
         await resend.emails.send({
-          from: 'onboarding@resend.dev',
+          from: FROM,
           to: barberoEmail,
           subject: `Nueva cita en tu agenda — ${negocio.nombre}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
@@ -288,7 +297,7 @@ export async function POST(req: NextRequest) {
 
       if (cliente?.email) {
         await resend.emails.send({
-          from: 'onboarding@resend.dev',
+          from: FROM,
           to: cliente.email,
           subject: `Reserva confirmada en ${negocio.nombre}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">

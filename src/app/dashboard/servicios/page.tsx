@@ -263,7 +263,11 @@ export default function ServiciosPage() {
     } else {
       const tope = capacidades?.maxServicios ?? 999
       if (servicios.length >= tope) {
-        toast.error(`Tu plan permite hasta ${tope} servicios. Sube a Pro para ilimitados.`)
+        toast.error(
+          tope >= 999
+            ? 'No se pudo agregar el servicio (límite del sistema).'
+            : `Tu plan permite hasta ${tope} servicios. Sube de plan para más cupos.`
+        )
         setGuardando(false)
         return
       }
@@ -364,15 +368,16 @@ export default function ServiciosPage() {
             <h1 className="text-2xl font-bold text-gray-900">Servicios</h1>
             <p className="text-gray-500 text-sm mt-1">
               {servicios.length} servicio{servicios.length !== 1 ? 's' : ''}
-              {capacidades?.nivel === 'basic' ? ` · máx. ${topeServ} en plan Básico` : ''}
+              {capacidades?.nivel === 'basic' &&
+                (topeServ >= 999 ? ' · servicios ilimitados en plan Básico' : ` · máx. ${topeServ} en plan Básico`)}
               {capacidades?.nivel === 'pro' ? ' · ilimitado en tu plan' : ''}
             </p>
-            {capacidades?.nivel === 'basic' && servicios.length >= topeServ && (
+            {capacidades?.nivel === 'basic' && topeServ < 999 && servicios.length >= topeServ && (
               <p className="text-xs text-amber-800 mt-2">
-                <Link href="/#planes" className="font-medium text-brand-700 underline">
-                  Plan Pro
+                <Link href="/dashboard/planes" className="font-medium text-brand-700 underline">
+                  Otros planes
                 </Link>{' '}
-                incluye servicios ilimitados.
+                permiten más servicios.
               </p>
             )}
           </div>

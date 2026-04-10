@@ -13,8 +13,8 @@ export const PLANES = {
     precio: 19,
     priceId: process.env.STRIPE_PRICE_BASIC!,
     descripcion:
-      '2 staff, reservas online con link, email, recordatorios 24h y 2h, agenda básica, política de cancelación',
-    limites: { barberos: 2, servicios: 10 },
+      '5 staff, servicios ilimitados, reservas online con link, email, recordatorios 24h y 2h, agenda, política de cancelación',
+    limites: { barberos: 5, servicios: 999 },
   },
   pro: {
     nombre: 'Pro',

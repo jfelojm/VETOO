@@ -5,6 +5,7 @@ import { addHours } from 'date-fns'
 import { enviarRecordatorioWhatsappWebhook } from '@/lib/recordatorios-canales'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 
 export async function GET(req: NextRequest) {
   // Verificar que viene del cron de Vercel
@@ -31,19 +32,21 @@ export async function GET(req: NextRequest) {
   const selectJoin =
     '*, cliente:clientes(nombre, email, telefono), negocio:negocios(nombre, recordatorio_email_cliente, recordatorio_whatsapp_cliente), barbero:barberos(nombre), servicio:servicios(nombre)'
 
+  // Límite superior estricto (.lt): si usáramos .lte, la misma cita en el borde coincidiría en dos
+  // ejecuciones horarias del cron y se duplicarían los correos.
   const { data: reservas2h } = await supabase
     .from('reservas')
     .select(selectJoin)
     .eq('estado', 'confirmada')
     .gte('fecha_hora', en2h.toISOString())
-    .lte('fecha_hora', en3h.toISOString())
+    .lt('fecha_hora', en3h.toISOString())
 
   const { data: reservas24h } = await supabase
     .from('reservas')
     .select(selectJoin)
     .eq('estado', 'confirmada')
     .gte('fecha_hora', en24h.toISOString())
-    .lte('fecha_hora', en25h.toISOString())
+    .lt('fecha_hora', en25h.toISOString())
 
   let enviados = 0
   const procesadas = new Set<string>()
@@ -91,7 +94,7 @@ export async function GET(req: NextRequest) {
     if (emailOn && cliente?.email?.trim()) {
       try {
         await resend.emails.send({
-          from: 'onboarding@resend.dev',
+          from: FROM,
           to: cliente.email,
           subject: `Recordatorio: tu turno ${texto} en ${negocio?.nombre}`,
           html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
@@ -107,8 +110,8 @@ export async function GET(req: NextRequest) {
       </div>`,
         })
         enviados++
-      } catch {
-        /* continuar con otros canales */
+      } catch (e) {
+        console.error('[recordatorios] email cliente', reserva.id, e)
       }
     }
 

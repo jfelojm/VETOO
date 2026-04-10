@@ -100,8 +100,8 @@ export function capacidadesDelNegocio(n: NegocioPlanInput): CapacidadesPlan {
   // basic
   return {
     nivel,
-    maxBarberosActivos: 2,
-    maxServicios: 10,
+    maxBarberosActivos: 5,
+    maxServicios: 999,
     reportesAvanzados: false,
     listaNegraClientes: false,
     marcaReservasPersonalizada: false,

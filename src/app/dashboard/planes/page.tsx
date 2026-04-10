@@ -9,11 +9,14 @@ import { differenceInCalendarDays, isAfter, parseISO } from 'date-fns'
 
 type PlanKey = 'basic' | 'pro' | 'premium'
 
+/** Base sin IVA; total con IVA 15% (Ecuador). */
 const PLANES_UI: {
   id: PlanKey
   nombre: string
   precioBaseUsd: number
   totalConIvaUsd: number
+  badge?: string
+  descripcionCorta?: string
   features: string[]
   proximamente?: boolean
 }[] = [
@@ -23,8 +26,8 @@ const PLANES_UI: {
     precioBaseUsd: 19,
     totalConIvaUsd: 21.85,
     features: [
-      'Hasta 2 profesionales activos',
-      'Hasta 10 servicios',
+      'Hasta 5 profesionales activos',
+      'Servicios ilimitados',
       'Reservas online con tu link',
       'Recordatorios por correo',
       'Agenda y política de cancelación',
@@ -35,11 +38,14 @@ const PLANES_UI: {
     nombre: 'Pro',
     precioBaseUsd: 39,
     totalConIvaUsd: 44.85,
+    badge: 'Multi-sucursal',
+    descripcionCorta: 'Orientado a negocios con más de una sucursal',
     features: [
-      'Profesionales y servicios ilimitados',
-      'Reportes avanzados e ingresos estimados',
-      'Lista negra de clientes',
-      'Marca en tu página de reservas',
+      'Gestión centralizada de múltiples sucursales',
+      'Staff y servicios ilimitados por sucursal',
+      'Reportes avanzados por sucursal e ingresos totales',
+      'Lista negra de clientes compartida entre sucursales',
+      'Marca personalizada en página de reservas',
       'Todo lo del plan Básico y más',
     ],
   },
@@ -175,7 +181,7 @@ export default function PlanesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Planes y facturación</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Paga con PayPhone (tarjeta u otros medios habilitados). IVA Ecuador 15% incluido en el total.
+            Precios en USD sin IVA. El total mensual con IVA Ecuador 15% se muestra debajo de cada plan.
           </p>
         </div>
       </div>
@@ -229,19 +235,28 @@ export default function PlanesPage() {
           >
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-bold text-gray-900">{p.nombre}</h2>
+              {p.badge && (
+                <span className="inline-flex items-center rounded-full bg-brand-100 text-brand-900 text-xs font-semibold px-2.5 py-0.5 border border-brand-200">
+                  {p.badge}
+                </span>
+              )}
               {p.proximamente && (
                 <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-900 text-xs font-semibold px-2.5 py-0.5 border border-amber-200">
                   Próximamente
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              ${p.precioBaseUsd.toFixed(2)} USD/mes + IVA 15%
-            </p>
-            <p className="text-2xl font-bold text-brand-700 mt-2">
-              ${p.totalConIvaUsd.toFixed(2)}{' '}
-              <span className="text-sm font-normal text-gray-500">USD total / mes</span>
-            </p>
+            {p.descripcionCorta && (
+              <p className="text-sm text-gray-500 mt-1">{p.descripcionCorta}</p>
+            )}
+            <div className="mt-3">
+              <p className="text-3xl font-bold text-brand-700 tracking-tight">
+                ${p.precioBaseUsd.toFixed(2)} USD/mes
+              </p>
+              <p className="text-xs text-gray-500 mt-1.5 leading-snug">
+                + IVA 15% = ${p.totalConIvaUsd.toFixed(2)} USD total/mes
+              </p>
+            </div>
             <ul className="mt-4 space-y-2 flex-1">
               {p.features.map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
