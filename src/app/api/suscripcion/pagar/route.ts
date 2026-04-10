@@ -64,14 +64,30 @@ function respuestaPareceHtml(text: string): boolean {
   return t.startsWith('<!DOCTYPE') || t.startsWith('<html') || t.startsWith('<HTML')
 }
 
+/**
+ * PayPhone puede devolver: URL plana, JSON `"https://…"` (string), u objeto `{ url }` / `{ paymentUrl }`.
+ */
 function extraerUrlPayPhone(text: string): string | null {
   const trimmed = text.trim()
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed
   }
   try {
-    const parsed = JSON.parse(text) as { url?: string }
-    if (parsed.url) return parsed.url
+    const parsed = JSON.parse(text) as unknown
+    if (typeof parsed === 'string') {
+      const u = parsed.trim()
+      if (u.startsWith('http://') || u.startsWith('https://')) return u
+      return null
+    }
+    if (parsed && typeof parsed === 'object') {
+      const o = parsed as Record<string, unknown>
+      const url =
+        (typeof o.url === 'string' && o.url) ||
+        (typeof o.paymentUrl === 'string' && o.paymentUrl) ||
+        (typeof o.payment_url === 'string' && o.payment_url) ||
+        (typeof o.linkUrl === 'string' && o.linkUrl)
+      if (url && (url.startsWith('http://') || url.startsWith('https://'))) return url
+    }
   } catch {
     /* ignore */
   }
@@ -81,6 +97,26 @@ function extraerUrlPayPhone(text: string): string | null {
 function logPagarPhase(label: string, t0: number) {
   if (process.env.NODE_ENV === 'development' || process.env.VERCEL) {
     console.log(`[pagar] ${label} +${Date.now() - t0}ms`)
+  }
+}
+
+/** Respuesta JSON de error de la API Links (ej. 404 con errorCode 2088). */
+function mensajeErrorPayPhoneJson(err: {
+  message?: string
+  errorCode?: number
+}): { error: string; detalle: string } {
+  const code = err.errorCode
+  const base = err.message?.trim() || 'Error PayPhone'
+  if (code === 2088) {
+    return {
+      error: `${base} (PayPhone ${code})`,
+      detalle:
+        'Link inválido: en el portal PayPhone (Developer) activa la API de Links para tu comercio y usa TOKEN + StoreId del mismo entorno (pruebas o producción). Si PAYPHONE_LINKS_API_URL apunta a otra base URL, debe ser la que indique la documentación de tu cuenta.',
+    }
+  }
+  return {
+    error: code != null ? `${base} (PayPhone ${code})` : base,
+    detalle: JSON.stringify(err),
   }
 }
 
@@ -308,15 +344,31 @@ export async function POST(req: NextRequest) {
 
     if (!payphoneRes.ok) {
       try {
-        const errJson = JSON.parse(text) as { message?: string }
+        const errJson = JSON.parse(text) as { message?: string; errorCode?: number }
+        if (errJson.errorCode === 2088) {
+          console.warn('[payphone] errorCode 2088 Link Inválido — revisar API Links y credenciales', {
+            url: linksUrlUsada,
+          })
+        }
+        const { error, detalle } = mensajeErrorPayPhoneJson(errJson)
         return jsonWithCookies(
-          { error: errJson.message ?? 'Error PayPhone', detail: errJson },
+          {
+            error,
+            detalle,
+            payphoneErrorCode: errJson.errorCode,
+            payphoneStatus: payphoneRes.status,
+            payphoneUrl: linksUrlUsada,
+          },
           502,
           cookiesToSet
         )
       } catch {
         return jsonWithCookies(
-          { error: text.slice(0, 200) || 'Error PayPhone' },
+          {
+            error: text.slice(0, 200) || 'Error PayPhone',
+            payphoneStatus: payphoneRes.status,
+            payphoneUrl: linksUrlUsada,
+          },
           502,
           cookiesToSet
         )
@@ -324,7 +376,7 @@ export async function POST(req: NextRequest) {
     }
 
     return jsonWithCookies(
-      { error: 'Respuesta PayPhone inesperada', detail: text.slice(0, 500) },
+      { error: 'Respuesta PayPhone inesperada', detalle: text.slice(0, 500) },
       502,
       cookiesToSet
     )

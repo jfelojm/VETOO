@@ -10,7 +10,11 @@ const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
 /** Variante que algunos hosts IIS enrutan distinto (evita 500 HTML por ruta incorrecta). */
 const PAYPHONE_LINKS_ALT_LOWERCASE = 'https://pay.payphonetodoesposible.com/api/links'
 
-/** Producción; sandbox u otro host si PayPhone te lo indica (`PAYPHONE_LINKS_API_URL`). */
+/**
+ * Producción por defecto. Override con `PAYPHONE_LINKS_API_URL` si PayPhone te asigna otra base.
+ * Si la API responde 404 / errorCode 2088 «Link inválido», suele faltar activar la API de Links en el
+ * portal Developer o las credenciales (token, StoreId) no coinciden con ese entorno.
+ */
 export function payphoneLinksApiUrl(): string {
   return process.env.PAYPHONE_LINKS_API_URL?.trim() || DEFAULT_PAYPHONE_LINKS
 }
