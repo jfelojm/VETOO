@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+/** URLs base del POST PayPhone: `payphone-config.ts` (dominio oficial payphonetodoesposible.com). */
+
 /** Evita que un PayPhone colgado consuma todo el presupuesto de tiempo de Vercel (~10s en Hobby). */
 export const PAYPHONE_FETCH_TIMEOUT_MS = 6000
 
