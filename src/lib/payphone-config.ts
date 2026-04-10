@@ -33,8 +33,8 @@ export function payphoneNotifyUrlDesdeEnv(): string | undefined {
 
 export const PAYPHONE_PLANES = {
   basic: {
-    /** ASCII: algunos backends fallan con acentos en `reference` */
-    reference: 'Turnapp Plan Basico',
+    /** PayPhone: `reference` máx. 10 caracteres. */
+    reference: 'TurnBasico',
     /** Total a cobrar */
     amount: 2185,
     /** Base gravada (sin IVA) */
@@ -42,13 +42,13 @@ export const PAYPHONE_PLANES = {
     tax: 285,
   },
   pro: {
-    reference: 'Turnapp Plan Pro',
+    reference: 'TurnPro',
     amount: 4485,
     amountWithTax: 3900,
     tax: 585,
   },
   premium: {
-    reference: 'Turnapp Plan Premium',
+    reference: 'TurnPremi',
     amount: 17250,
     amountWithTax: 15000,
     tax: 2250,
@@ -62,7 +62,7 @@ export function additionalDataPago(negocioId: string, plan: PayPhonePlanKey): st
 }
 
 /**
- * Max 15 caracteres (PayPhone). Valor aleatorio nuevo en cada intento (evita duplicate key en BD).
+ * PayPhone: máx. 16 caracteres. Generamos 15 (hex) por intento (evita duplicate key en BD).
  */
 export function clientTransactionIdPayPhone(): string {
   return randomBytes(8).toString('hex').slice(0, 15)
