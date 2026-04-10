@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
+import { createSupabaseRouteClient } from '@/lib/supabase-route'
 import { addDays, addMinutes } from 'date-fns'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 import { z } from 'zod'
@@ -46,6 +47,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const data = schema.parse(body)
+
+    const { supabase: supabaseFromAuth } = createSupabaseRouteClient(req)
+    const {
+      data: { user },
+    } = await supabaseFromAuth.auth.getUser()
+    const barberoIdSesionStaff =
+      typeof user?.user_metadata?.barbero_id === 'string' ? user.user_metadata.barbero_id : undefined
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -102,7 +110,36 @@ export async function POST(req: NextRequest) {
 
     let barberoInsert: string
 
-    if (!data.barbero_id) {
+    if (barberoIdSesionStaff) {
+      if (data.barbero_id && data.barbero_id !== barberoIdSesionStaff) {
+        return NextResponse.json(
+          { error: 'No puedes asignar reservas a otro profesional.' },
+          { status: 403 }
+        )
+      }
+      if (!barberIdsActivos.includes(barberoIdSesionStaff)) {
+        return NextResponse.json(
+          { error: 'Tu cuenta de profesional no está activa en este negocio.' },
+          { status: 403 }
+        )
+      }
+      const dispoStaff = slotDisponibleParaBarberoConcreto(
+        barberoIdSesionStaff,
+        cursor,
+        slotFin,
+        barberIdsActivos,
+        reservasArr,
+        bloqueosArr
+      )
+      if (!dispoStaff.disponible) {
+        const msg =
+          dispoStaff.motivo === 'bloqueo'
+            ? 'Tienes un bloqueo en el horario elegido.'
+            : 'No estás disponible en el horario elegido.'
+        return NextResponse.json({ error: msg }, { status: 409 })
+      }
+      barberoInsert = barberoIdSesionStaff
+    } else if (!data.barbero_id) {
       const tieBreakSeed = `${data.negocio_id}-${formatInTimeZone(cursor, TZ_NEGOCIO, 'yyyy-MM-dd_HH:mm')}`
       const picked = elegirBarberoParaSinPreferencia(
         cursor,

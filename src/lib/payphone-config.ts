@@ -2,10 +2,10 @@ import { randomBytes } from 'crypto'
 
 /** Montos en centavos (USD). IVA Ecuador 15%. amount = amountWithTax + tax */
 
-const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphonetodoesposible.com/api/Links'
+const DEFAULT_PAYPHONE_LINKS = 'https://pay.payphone.com/api/Links'
 
 /** Variante que algunos hosts IIS enrutan distinto (evita 500 HTML por ruta incorrecta). */
-const PAYPHONE_LINKS_ALT_LOWERCASE = 'https://pay.payphonetodoesposible.com/api/links'
+const PAYPHONE_LINKS_ALT_LOWERCASE = 'https://pay.payphone.com/api/links'
 
 /** Producción; sandbox u otro host si PayPhone te lo indica (`PAYPHONE_LINKS_API_URL`). */
 export function payphoneLinksApiUrl(): string {
