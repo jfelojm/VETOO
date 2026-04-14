@@ -56,8 +56,7 @@ export const metadata: Metadata = {
     images: ['/twitter-image'],
   },
   verification: {
-    /** Search Console: valor del meta tag; o NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION en .env */
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || 'VERIFICACION_AQUI',
+    google: '4Thv0XFzGovF9kU6c_x3ruRaAp1vyjHHPWxJDKBLadU',
   },
 }
 
