@@ -55,15 +55,17 @@ export const metadata: Metadata = {
       'Tus clientes reservan desde Instagram o WhatsApp. Tú gestionas todo desde un panel simple.',
     images: ['/twitter-image'],
   },
-  verification: {
-    google: '4Thv0XFzGovF9kU6c_x3ruRaAp1vyjHHPWxJDKBLadU',
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${outfit.variable} ${dmSans.variable}`}>
       <head>
+        {/* Explícito: a veces el merge de metadata no basta para Search Console */}
+        <meta
+          name="google-site-verification"
+          content="4Thv0XFzGovF9kU6c_x3ruRaAp1vyjHHPWxJDKBLadU"
+        />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0D9B6A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
