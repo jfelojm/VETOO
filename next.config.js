@@ -1,5 +1,11 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /** Evita que Turbopack tome el lockfile del repo padre y falle build/deploy */
+  turbopack: {
+    root: path.join(__dirname),
+  },
   images: {
     remotePatterns: [
       {
@@ -16,12 +22,11 @@ const nextConfig = {
         destination: 'https://turnapp.lat/:path*',
         permanent: true,
       },
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.turnapp.lat' }],
-        destination: 'https://turnapp.lat/:path*',
-        permanent: true,
-      },
+      /**
+       * NO redirigir www → apex aquí: en Vercel suele configurarse apex → www.
+       * Si ambas reglas existen, el navegador entra en bucle (ERR_TOO_MANY_REDIRECTS).
+       * El dominio canónico se define en Vercel (Dominios → asignar el que sea “principal”).
+       */
     ]
   },
 }

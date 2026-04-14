@@ -4,6 +4,4 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = {
-  matcher: []
-}
+/** Sin matcher = aplica a todas las rutas (aquí solo devuelve next). */

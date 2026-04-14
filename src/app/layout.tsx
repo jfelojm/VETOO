@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   },
   verification: {
     /** Search Console: valor del meta tag; o NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION en .env */
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? 'VERIFICACION_AQUI',
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || 'VERIFICACION_AQUI',
   },
 }
 
