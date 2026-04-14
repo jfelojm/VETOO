@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyCronAuth } from '@/lib/cron-auth'
 import { Resend } from 'resend'
 import { addHours } from 'date-fns'
 import { enviarRecordatorioWhatsappWebhook } from '@/lib/recordatorios-canales'
@@ -12,9 +13,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL
 
 export async function GET(req: NextRequest) {
-  // Verificar que viene del cron de Vercel
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 

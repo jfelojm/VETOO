@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { refreshDemoReservations } from '@/lib/demo-reservations'
+import { verifyCronAuth } from '@/lib/cron-auth'
 
 /**
  * Renueva las reservas ficticias del negocio demo (próximos días, sin domingos).
  * Proteger con CRON_SECRET (mismo patrón que /api/recordatorios).
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 

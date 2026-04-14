@@ -7,7 +7,8 @@
     "build": "next build",
     "postbuild": "next-sitemap",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed-demo-reservations": "tsx src/scripts/seed-demo-reservations.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",
@@ -34,6 +35,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
