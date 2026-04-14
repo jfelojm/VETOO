@@ -1,46 +1,40 @@
 import { Resend } from 'resend'
 import type { Reserva } from '@/types'
 import { formatFecha, nombreClienteReservaRow } from '@/lib/utils'
+import {
+  DEFAULT_FROM_EMAIL,
+  htmlEmailConfirmacionReserva,
+} from '@/lib/emails/transactional-html'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM_EMAIL || 'reservas@turnapp.com'
+const FROM = process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL
 
 // Email de confirmación al cliente
 export async function emailConfirmacionCliente(reserva: Reserva) {
   const negocio = reserva.negocio!
-  const fecha = formatFecha(reserva.fecha_hora)
   const nombreCli = nombreClienteReservaRow(reserva)
+  const email = reserva.cliente!.email || ''
+  if (!email) return
+
+  const html = htmlEmailConfirmacionReserva({
+    clienteNombre: nombreCli,
+    negocioNombre: negocio.nombre,
+    negocioDireccion: negocio.direccion,
+    negocioSlug: negocio.slug,
+    servicioNombre: reserva.servicio?.nombre ?? null,
+    staffNombre: reserva.barbero?.nombre ?? null,
+    fechaHoraIso: reserva.fecha_hora,
+    duracionMin: reserva.duracion,
+    cancelacionHorasMin: negocio.cancelacion_horas_minimo ?? 2,
+    politicaExtra: reserva.politica_texto_snapshot ?? negocio.cancelacion_mensaje ?? null,
+    appBaseUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
+  })
 
   await resend.emails.send({
     from: FROM,
-    to: reserva.cliente!.email || '',
+    to: email,
     subject: `Reserva confirmada en ${negocio.nombre}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a1a1a;">Tu reserva está confirmada</h2>
-        <p>Hola <strong>${nombreCli}</strong>,</p>
-        <p>Tu reserva en <strong>${negocio.nombre}</strong> ha sido confirmada.</p>
-
-        <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 4px 0;"><strong>Fecha y hora:</strong> ${fecha}</p>
-          ${reserva.servicio ? `<p style="margin: 4px 0;"><strong>Servicio:</strong> ${reserva.servicio.nombre}</p>` : ''}
-          ${reserva.barbero ? `<p style="margin: 4px 0;"><strong>Barbero:</strong> ${reserva.barbero.nombre}</p>` : ''}
-          ${negocio.direccion ? `<p style="margin: 4px 0;"><strong>Dirección:</strong> ${negocio.direccion}</p>` : ''}
-        </div>
-
-        ${reserva.politica_texto_snapshot ? `
-        <div style="background: #fff8e1; border-left: 3px solid #f59e0b; padding: 12px 16px; margin: 16px 0; font-size: 14px;">
-          <strong>Política de cancelación:</strong><br/>
-          ${reserva.politica_texto_snapshot}
-        </div>
-        ` : ''}
-
-        <p style="color: #666; font-size: 14px;">
-          Si necesitas cancelar o tienes alguna duda, contacta directamente a ${negocio.nombre}
-          ${negocio.telefono ? ` al ${negocio.telefono}` : ''}.
-        </p>
-      </div>
-    `,
+    html,
   })
 }
 

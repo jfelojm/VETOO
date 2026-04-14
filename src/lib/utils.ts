@@ -19,6 +19,17 @@ export function formatHora(fecha: string | Date) {
   return format(typeof fecha === 'string' ? parseISO(fecha) : fecha, 'HH:mm', { locale: es })
 }
 
+/** Iniciales para avatar (p. ej. "Carlos Méndez" → "CM") */
+export function inicialesNombre(nombre: string): string {
+  const p = nombre.trim().split(/\s+/).filter(Boolean)
+  if (p.length >= 2) {
+    const a = p[0]?.[0] ?? ''
+    const b = p[p.length - 1]?.[0] ?? ''
+    return `${a}${b}`.toUpperCase()
+  }
+  return nombre.trim().slice(0, 2).toUpperCase() || '?'
+}
+
 /** Nombre mostrado en listados de reserva (prioriza lo escrito en esa cita vs. ficha cliente por teléfono). */
 export function nombreClienteReservaRow(r: {
   cliente_nombre_snapshot?: string | null

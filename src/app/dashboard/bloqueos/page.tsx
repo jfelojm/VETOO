@@ -225,7 +225,6 @@ export default function BloqueosDashboardPage() {
   return (
     <RequierePlanOperativo>
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Bloqueos de agenda</h1>
       <p className="text-gray-500 text-sm mb-6">
         Visualiza y configura horarios no disponibles por cada persona del staff (misma vista que en
         reservas).

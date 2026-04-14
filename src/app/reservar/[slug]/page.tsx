@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { planActivo } from '@/lib/utils'
 import { getTipoConfig } from '@/lib/negocio-tipo'
 import BookingFlow from '@/components/booking/BookingFlow'
-import { Scissors, MapPin, Clock, Instagram } from 'lucide-react'
+import { MapPin, Clock, Instagram } from 'lucide-react'
+import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -54,18 +55,18 @@ export default async function ReservarPage({ params }: Props) {
   // Verificar que el plan esté activo
   if (!planActivo(negocio)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-chalk flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <Scissors className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-700 mb-2">{negocio.nombre}</h1>
-          <p className="text-gray-500 text-sm">
+          <TurnAppSymbol size={48} color="#6b6b76" className="mx-auto mb-4 opacity-70" aria-hidden />
+          <h1 className="font-heading text-xl font-bold text-ink mb-2">{negocio.nombre}</h1>
+          <p className="text-ink-muted text-sm">
             Las reservas online no están disponibles en este momento.
             Contacta directamente al negocio.
           </p>
           {negocio.telefono && (
             <a
               href={`https://wa.me/${negocio.telefono.replace(/\D/g,'')}`}
-              className="mt-4 inline-block bg-green-500 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-600 transition-colors"
+              className="mt-4 inline-block bg-brand-primary text-white px-6 py-2.5 rounded-full text-sm font-medium shadow-brand transition-all hover:bg-brand-glow hover:shadow-brand"
             >
               Contactar por WhatsApp
             </a>
@@ -97,35 +98,40 @@ export default async function ReservarPage({ params }: Props) {
   const TipoHeaderIcon = tipoCfg.Icon
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-chalk">
 
       {/* Header del negocio */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-lg mx-auto px-4 py-6">
-          <div className="flex items-start gap-4">
-            {/* Logo / Icono */}
-            <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center shrink-0">
+      <header className="border-b border-border bg-chalk">
+        <div className="max-w-lg mx-auto px-4 py-5 md:py-6">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-[1.5px] border-border bg-brand-light">
               {negocio.logo_url ? (
-                <img src={negocio.logo_url} alt={negocio.nombre} className="w-16 h-16 rounded-2xl object-cover" />
+                <img src={negocio.logo_url} alt={negocio.nombre} className="h-16 w-16 object-cover" />
               ) : (
-                <TipoHeaderIcon className="w-8 h-8 text-brand-600" />
+                <div className="flex h-full w-full items-center justify-center">
+                  <TipoHeaderIcon className="h-8 w-8 text-brand-primary" />
+                </div>
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 gap-y-1">
-                <h1 className="text-xl font-bold text-gray-900">{negocio.nombre}</h1>
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-800 bg-brand-50 border border-brand-100 rounded-full px-2.5 py-0.5">
-                  <TipoHeaderIcon className="w-3 h-3" />
-                  {tipoCfg.label}
-                </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-heading text-xl font-bold leading-snug tracking-tight text-ink">
+                {negocio.nombre}
+              </h1>
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] leading-tight text-ink-muted">
+                <span>Powered by</span>
+                <TurnAppLogo variant="icon-only" size="sm" className="scale-90 origin-left" />
               </div>
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] font-medium text-ink-soft">
+                <TipoHeaderIcon className="h-3 w-3 shrink-0 text-brand-primary" />
+                {tipoCfg.label}
+              </span>
               {negocio.descripcion && (
-                <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{negocio.descripcion}</p>
+                <p className="mt-2 text-sm text-ink-muted line-clamp-2">{negocio.descripcion}</p>
               )}
-              <div className="flex flex-wrap gap-3 mt-2">
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                 {negocio.ciudad && (
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <MapPin className="w-3 h-3" /> {negocio.ciudad}
+                  <span className="flex items-center gap-1 text-xs text-ink-muted">
+                    <MapPin className="h-3 w-3 shrink-0" /> {negocio.ciudad}
                   </span>
                 )}
                 {negocio.instagram_url && (
@@ -133,22 +139,22 @@ export default async function ReservarPage({ params }: Props) {
                     href={negocio.instagram_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-brand-600 hover:underline"
+                    className="flex items-center gap-1 text-xs font-medium text-brand-primary hover:underline"
                   >
-                    <Instagram className="w-3 h-3" /> Instagram
+                    <Instagram className="h-3 w-3 shrink-0" /> Instagram
                   </a>
                 )}
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock className="w-3 h-3" /> Turnos de {negocio.duracion_turno_min} min
+                <span className="flex items-center gap-1 text-xs text-ink-muted">
+                  <Clock className="h-3 w-3 shrink-0" /> Turnos de {negocio.duracion_turno_min} min
                 </span>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Flujo de reserva */}
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="max-w-lg mx-auto px-4 py-5 pb-8 sm:py-6">
         <BookingFlow
           negocio={negocio}
           barberos={barberos}
@@ -156,10 +162,12 @@ export default async function ReservarPage({ params }: Props) {
         />
       </div>
 
-      {/* Footer */}
-      <div className="text-center py-6 text-xs text-gray-300">
-        Reservas online por <span className="font-medium">Turnapp</span>
-      </div>
+      <footer className="border-t border-border bg-chalk py-6 text-center text-[11px] text-ink-muted">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span>Reservas online con</span>
+          <TurnAppLogo variant="light" size="sm" className="inline-flex" />
+        </div>
+      </footer>
 
     </div>
   )

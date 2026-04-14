@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Scissors, CheckCircle, ChevronLeft } from 'lucide-react'
+import { CheckCircle, ChevronLeft } from 'lucide-react'
+import TurnAppLogo from '@/components/brand/TurnAppLogo'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { listTiposNegocio, type TipoNegocioId } from '@/lib/negocio-tipo'
@@ -159,9 +160,8 @@ export default function RegisterPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-2">
-              <Scissors className="w-7 h-7 text-brand-600" />
-              <span className="text-xl font-bold">Turnapp</span>
+            <div className="mb-2 flex justify-center">
+              <TurnAppLogo variant="light" size="lg" href="/" />
             </div>
             <p className="text-gray-500 text-sm">14 días gratis · Sin tarjeta de crédito</p>
             <h2 className="text-lg font-semibold text-gray-900 mt-6">¿Qué tipo de negocio tienes?</h2>
@@ -214,9 +214,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">Turnapp</span>
+          <div className="mb-2 flex justify-center">
+            <TurnAppLogo variant="light" size="lg" href="/" />
           </div>
           <p className="text-gray-500 text-sm">14 días gratis · Sin tarjeta de crédito</p>
         </div>

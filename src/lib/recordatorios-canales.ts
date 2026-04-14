@@ -1,5 +1,5 @@
 /**
- * Canal opcional para recordatorios por WhatsApp / SMS.
+ * Canal opcional para WhatsApp (recordatorios y confirmación de nueva reserva en POST /api/reservas).
  * Configura NOTIFICACIONES_WHATSAPP_WEBHOOK_URL (POST JSON: { telefono, mensaje }).
  */
 export async function enviarRecordatorioWhatsappWebhook(

@@ -66,30 +66,30 @@ export default function CalendarioMes({
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-2xl border border-border bg-chalk p-4 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={() => onCambiarMes(subMonths(inicioMes, 1))}
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
+          className="rounded-lg border border-border p-2 text-ink-muted transition-colors hover:bg-surface hover:text-ink"
           aria-label="Mes anterior"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
-        <p className="text-sm font-semibold text-gray-900 capitalize">
+        <p className="font-heading text-sm font-semibold capitalize text-ink">
           {format(inicioMes, 'MMMM yyyy', { locale: es })}
         </p>
         <button
           type="button"
           onClick={() => onCambiarMes(addMonths(inicioMes, 1))}
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
+          className="rounded-lg border border-border p-2 text-ink-muted transition-colors hover:bg-surface hover:text-ink"
           aria-label="Mes siguiente"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-gray-400 mb-2">
+      <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
         {DIAS_CORTO.map(d => (
           <span key={d}>{d}</span>
         ))}
@@ -106,7 +106,7 @@ export default function CalendarioMes({
             return (
               <div
                 key={d.toISOString()}
-                className="aspect-square max-h-10 flex items-center justify-center text-xs text-gray-200"
+                className="flex aspect-square max-h-10 items-center justify-center text-xs text-ink-muted/25"
               >
                 {format(d, 'd')}
               </div>
@@ -123,10 +123,10 @@ export default function CalendarioMes({
               onClick={() => ok && onSeleccionarDia(d)}
               className={cn(
                 'relative aspect-square max-h-10 rounded-lg text-sm font-medium transition-colors',
-                !ok && 'text-gray-300 cursor-not-allowed bg-gray-50',
-                ok && !seleccionado && 'text-gray-800 hover:bg-brand-50 border border-transparent',
-                ok && seleccionado && 'bg-brand-600 text-white shadow-md border border-brand-600',
-                today && !(ok && seleccionado) && ok && 'ring-1 ring-brand-300'
+                !ok && 'cursor-not-allowed bg-surface/80 text-ink-muted/35',
+                ok && !seleccionado && 'border border-transparent text-ink hover:bg-brand-light',
+                ok && seleccionado && 'border border-brand-primary bg-brand-primary text-white shadow-sm',
+                today && !(ok && seleccionado) && ok && 'ring-1 ring-brand-primary/35'
               )}
             >
               {format(d, 'd')}
@@ -134,7 +134,7 @@ export default function CalendarioMes({
                 <span
                   className={cn(
                     'absolute bottom-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-3.5 px-0.5 rounded-full text-[9px] font-bold leading-[14px] text-center',
-                    ok && seleccionado ? 'bg-white/25 text-white' : 'bg-brand-500 text-white'
+                    ok && seleccionado ? 'bg-white/25 text-white' : 'bg-brand-primary text-white'
                   )}
                 >
                   {nCitas > 9 ? '9+' : nCitas}

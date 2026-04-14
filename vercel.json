@@ -3,6 +3,10 @@
       {
         "path": "/api/recordatorios",
         "schedule": "0 * * * *"
+      },
+      {
+        "path": "/api/cron/refresh-demo-reservations",
+        "schedule": "30 6 * * *"
       }
     ]
   }

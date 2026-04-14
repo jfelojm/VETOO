@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Calendar, CheckCircle2, XCircle, UserX, DollarSign } from 'lucide-react'
 import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
+import { cn } from '@/lib/utils'
 
 interface Stats {
   totalMes: number
@@ -69,7 +71,6 @@ export default function ReportesPage() {
     const canceladas  = reservas.filter(r => r.estado === 'cancelada').length
     const noShow      = reservas.filter(r => r.estado === 'no_show').length
 
-    // Servicio más pedido
     const servicioCount: Record<string, number> = {}
     activas.forEach(r => {
       const nombre = (r.servicio as any)?.nombre ?? 'Sin servicio'
@@ -77,7 +78,6 @@ export default function ReportesPage() {
     })
     const servicioTop = Object.entries(servicioCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'
 
-    // Barbero más reservado
     const barberoCount: Record<string, number> = {}
     activas.forEach(r => {
       const nombre = (r.barbero as any)?.nombre ?? 'Sin asignar'
@@ -85,7 +85,6 @@ export default function ReportesPage() {
     })
     const barberoTop = Object.entries(barberoCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'
 
-    // Hora pico
     const horaCount: Record<string, number> = {}
     activas.forEach(r => {
       const hora = new Date(r.fecha_hora).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -93,7 +92,6 @@ export default function ReportesPage() {
     })
     const horaPico = Object.entries(horaCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'
 
-    // Ingreso estimado
     const ingresoEstimado = activas.reduce((sum, r) => {
       return sum + ((r.servicio as any)?.precio ?? 0)
     }, 0)
@@ -117,20 +115,26 @@ export default function ReportesPage() {
     ? Math.round(((stats.totalMes - stats.totalMesAnterior) / stats.totalMesAnterior) * 100)
     : null
 
+  const pctCompletadas = stats && stats.totalMes > 0
+    ? Math.round((stats.completadas / stats.totalMes) * 100)
+    : 0
+  const pctCancelacion = stats && stats.totalMes + stats.canceladas > 0
+    ? Math.round((stats.canceladas / (stats.totalMes + stats.canceladas)) * 100)
+    : 0
+
   if (!capacidades?.reportesAvanzados) {
     return (
       <div className="max-w-lg">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Reportes avanzados</h1>
-        <p className="text-gray-600 text-sm mb-6">
+        <p className="mb-6 text-sm text-ink-muted">
           Ingresos estimados, servicio y profesional más reservados, hora pico y comparativa mes a mes están
           incluidos en el plan Pro (y en tu periodo de prueba).
         </p>
         <div className="card space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-ink-soft">
             Con el plan Básico sigues teniendo agenda, reservas y clientes; al subir de plan desbloqueas este
             panel sin perder datos.
           </p>
-          <Link href="/#planes" className="btn-primary inline-block text-center">
+          <Link href="/#planes" className="btn-primary inline-block w-full text-center sm:w-auto">
             Ver planes y mejorar
           </Link>
         </div>
@@ -139,99 +143,155 @@ export default function ReportesPage() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
-          <p className="text-gray-500 text-sm mt-1 capitalize">{mesLabel}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setMesSeleccionado(m => subMonths(m, 1))}
-            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+    <div className="max-w-4xl">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm capitalize text-ink-muted">{mesLabel}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMesSeleccionado(m => subMonths(m, 1))}
+            className="rounded-full border border-border bg-chalk px-3 py-2 text-sm text-ink-soft transition-colors hover:border-border-hover hover:bg-surface"
+          >
             ←
           </button>
-          <button onClick={() => setMesSeleccionado(new Date())}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button
+            type="button"
+            onClick={() => setMesSeleccionado(new Date())}
+            className="rounded-full border border-border bg-chalk px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-brand-primary/40 hover:bg-brand-light"
+          >
             Este mes
           </button>
-          <button onClick={() => setMesSeleccionado(m => {
-            const next = new Date(m)
-            next.setMonth(next.getMonth() + 1)
-            return next > new Date() ? m : next
-          })}
-            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+          <button
+            type="button"
+            onClick={() => setMesSeleccionado(m => {
+              const next = new Date(m)
+              next.setMonth(next.getMonth() + 1)
+              return next > new Date() ? m : next
+            })}
+            className="rounded-full border border-border bg-chalk px-3 py-2 text-sm text-ink-soft transition-colors hover:border-border-hover hover:bg-surface"
+          >
             →
           </button>
         </div>
       </div>
 
       {cargando ? (
-        <div className="text-center py-12 text-gray-400 text-sm">Cargando reportes...</div>
+        <div className="py-12 text-center text-sm text-ink-muted">Cargando reportes...</div>
       ) : !stats || stats.totalMes === 0 ? (
-        <div className="card text-center py-12">
-          <p className="text-gray-400 text-sm">No hay reservas en este período</p>
+        <div className="card py-12 text-center">
+          <p className="text-sm text-ink-muted">No hay reservas en este período</p>
         </div>
       ) : (
         <>
-          {/* Métricas principales */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="card">
-              <p className="text-xs text-gray-500 mb-1">Total reservas</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.totalMes}</p>
+          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="flex flex-col rounded-[20px] border border-border bg-chalk p-4 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="text-[13px] leading-tight text-ink-muted">Total reservas</span>
+                <Calendar className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="font-heading text-[32px] font-extrabold leading-none tracking-tight text-ink">
+                {stats.totalMes}
+              </p>
               {crecimiento !== null && (
-                <p className={`text-xs mt-1 font-medium ${crecimiento >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                <span
+                  className={cn(
+                    'mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+                    crecimiento >= 0
+                      ? 'bg-success/12 text-success'
+                      : 'bg-danger/12 text-danger'
+                  )}
+                >
                   {crecimiento >= 0 ? '↑' : '↓'} {Math.abs(crecimiento)}% vs mes anterior
-                </p>
+                </span>
               )}
             </div>
-            <div className="card">
-              <p className="text-xs text-gray-500 mb-1">Completadas</p>
-              <p className="text-3xl font-bold text-green-600">{stats.completadas}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {stats.totalMes > 0 ? Math.round((stats.completadas / stats.totalMes) * 100) : 0}% del total
+
+            <div className="flex flex-col rounded-[20px] border border-border bg-chalk p-4 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="text-[13px] leading-tight text-ink-muted">Completadas</span>
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="font-heading text-[32px] font-extrabold leading-none tracking-tight text-ink">
+                {stats.completadas}
               </p>
+              <span className="mt-2 inline-flex w-fit rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted">
+                {pctCompletadas}% del total
+              </span>
             </div>
-            <div className="card">
-              <p className="text-xs text-gray-500 mb-1">Canceladas</p>
-              <p className="text-3xl font-bold text-red-500">{stats.canceladas}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {stats.totalMes + stats.canceladas > 0 ? Math.round((stats.canceladas / (stats.totalMes + stats.canceladas)) * 100) : 0}% tasa cancelación
+
+            <div className="flex flex-col rounded-[20px] border border-border bg-chalk p-4 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="text-[13px] leading-tight text-ink-muted">Canceladas</span>
+                <XCircle className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="font-heading text-[32px] font-extrabold leading-none tracking-tight text-ink">
+                {stats.canceladas}
               </p>
+              <span className="mt-2 inline-flex w-fit rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted">
+                {pctCancelacion}% tasa cancelación
+              </span>
             </div>
-            <div className="card">
-              <p className="text-xs text-gray-500 mb-1">No asistió</p>
-              <p className="text-3xl font-bold text-amber-500">{stats.noShow}</p>
-              <p className="text-xs text-gray-400 mt-1">clientes no show</p>
+
+            <div className="flex flex-col rounded-[20px] border border-border bg-chalk p-4 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="text-[13px] leading-tight text-ink-muted">No asistió</span>
+                <UserX className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="font-heading text-[32px] font-extrabold leading-none tracking-tight text-ink">
+                {stats.noShow}
+              </p>
+              <span className="mt-2 inline-flex w-fit rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted">
+                clientes no show
+              </span>
             </div>
           </div>
 
-          {/* Ingreso estimado */}
-          <div className="card mb-6 bg-brand-50 border-brand-200">
-            <p className="text-sm text-brand-700 mb-1">Ingreso estimado del mes</p>
-            <p className="text-3xl font-bold text-brand-800">
-              ${stats.ingresoEstimado.toFixed(2)}
-            </p>
-            <p className="text-xs text-brand-600 mt-1">
-              Basado en los precios referenciales de tus servicios. El pago real es en el local.
-            </p>
+          <div className="mb-6 rounded-[20px] border border-border bg-chalk p-5 shadow-sm md:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] text-ink-muted">Ingreso estimado del mes</p>
+                <p className="mt-1 font-heading text-[32px] font-extrabold tracking-tight text-ink">
+                  ${stats.ingresoEstimado.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-ink-muted">
+                  Basado en los precios referenciales de tus servicios. El pago real es en el local.
+                </p>
+              </div>
+              <DollarSign className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} aria-hidden />
+            </div>
           </div>
 
-          {/* Insights */}
-          <div className="card">
-            <h2 className="font-semibold text-gray-900 mb-4">Insights del mes</h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Servicio más pedido</span>
-                <span className="text-sm font-medium text-gray-900">{stats.servicioTop}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Barbero más reservado</span>
-                <span className="text-sm font-medium text-gray-900">{stats.barberoTop}</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-gray-500">Hora con más reservas</span>
-                <span className="text-sm font-medium text-gray-900">{stats.horaPico}</span>
-              </div>
+          <div className="overflow-hidden rounded-[20px] border border-border">
+            <h2 className="border-b border-border bg-chalk px-4 py-3 font-heading text-base font-semibold text-ink md:px-5">
+              Insights del mes
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[280px] border-collapse text-left">
+                <thead>
+                  <tr className="bg-surface">
+                    <th className="px-4 py-3 text-[12px] font-bold uppercase tracking-wide text-ink-muted md:px-5">
+                      Indicador
+                    </th>
+                    <th className="px-4 py-3 text-[12px] font-bold uppercase tracking-wide text-ink-muted md:px-5">
+                      Valor
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border bg-chalk transition-colors hover:bg-brand-light">
+                    <td className="px-4 py-3 text-[12px] text-ink-muted md:px-5">Servicio más pedido</td>
+                    <td className="px-4 py-3 text-sm font-medium text-ink md:px-5">{stats.servicioTop}</td>
+                  </tr>
+                  <tr className="border-b border-border bg-chalk transition-colors hover:bg-brand-light">
+                    <td className="px-4 py-3 text-[12px] text-ink-muted md:px-5">Barbero más reservado</td>
+                    <td className="px-4 py-3 text-sm font-medium text-ink md:px-5">{stats.barberoTop}</td>
+                  </tr>
+                  <tr className="bg-chalk transition-colors hover:bg-brand-light">
+                    <td className="px-4 py-3 text-[12px] text-ink-muted md:px-5">Hora con más reservas</td>
+                    <td className="px-4 py-3 text-sm font-medium text-ink md:px-5">{stats.horaPico}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </>

@@ -171,7 +171,6 @@ export default function AjustesPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
         <p className="text-gray-500 text-sm mt-1">Configura tu negocio y tus reglas de reserva</p>
       </div>
 

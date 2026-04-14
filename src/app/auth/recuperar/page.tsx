@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Scissors, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
+import TurnAppLogo from '@/components/brand/TurnAppLogo'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -63,9 +64,8 @@ export default function RecuperarPasswordPage() {
         </Link>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">Turnapp</span>
+          <div className="mb-2 flex justify-center">
+            <TurnAppLogo variant="light" size="lg" href="/" />
           </div>
           <p className="text-gray-500 text-sm">Recuperar contraseña</p>
         </div>

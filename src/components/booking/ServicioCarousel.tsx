@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight, Scissors } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 
 type Props = {
   urls: string[]
@@ -38,8 +39,8 @@ export default function ServicioCarousel({ urls, nombre }: Props) {
         onClick={e => e.stopPropagation()}
         onPointerDown={e => e.stopPropagation()}
       >
-        <div className="h-[200px] w-full rounded-xl bg-gray-100 flex items-center justify-center border border-gray-100">
-          <Scissors className="w-12 h-12 text-gray-300" aria-hidden />
+        <div className="flex h-[200px] w-full items-center justify-center rounded-t-md border-b border-border bg-surface">
+          <TurnAppSymbol size={48} color="rgba(107,107,118,0.4)" aria-hidden />
         </div>
       </div>
     )
@@ -52,7 +53,7 @@ export default function ServicioCarousel({ urls, nombre }: Props) {
       onPointerDown={e => e.stopPropagation()}
     >
       <div
-        className="relative h-[200px] w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-100 touch-pan-y"
+        className="relative h-[200px] w-full overflow-hidden rounded-t-md border-b border-border bg-surface touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -71,7 +72,7 @@ export default function ServicioCarousel({ urls, nombre }: Props) {
               type="button"
               aria-label="Foto anterior"
               onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-white"
+              className="absolute left-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-chalk/95 text-ink-soft shadow-sm backdrop-blur-sm hover:bg-chalk"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -79,7 +80,7 @@ export default function ServicioCarousel({ urls, nombre }: Props) {
               type="button"
               aria-label="Foto siguiente"
               onClick={() => go(1)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-white"
+              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-chalk/95 text-ink-soft shadow-sm backdrop-blur-sm hover:bg-chalk"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -97,7 +98,7 @@ export default function ServicioCarousel({ urls, nombre }: Props) {
               aria-label={`Ir a foto ${i + 1}`}
               onClick={() => setIdx(i)}
               className={`rounded-full transition-all ${
-                i === idx ? 'w-2.5 h-2.5 bg-brand-600' : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
+                i === idx ? 'h-2.5 w-2.5 bg-brand-primary' : 'h-2 w-2 bg-border hover:bg-ink-muted/50'
               }`}
             />
           ))}

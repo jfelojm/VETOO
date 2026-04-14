@@ -9,18 +9,18 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ToggleLeft,
-  ToggleRight,
   Scissors,
   ImageIcon,
   ChevronUp,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { usePlanAcceso } from '@/app/dashboard/PlanAccesoContext'
 import RequierePlanOperativo from '@/components/dashboard/RequierePlanOperativo'
 import type { Servicio, ServicioFoto } from '@/types'
 import { MAX_FOTOS_POR_SERVICIO } from '@/lib/servicio-fotos-api'
 import { inferImageMime } from '@/lib/servicio-fotos-mime'
+import { cn, formatPrecio } from '@/lib/utils'
 
 const MAX_FOTO_BYTES = 3 * 1024 * 1024
 
@@ -46,6 +46,7 @@ export default function ServiciosPage() {
   const [fotosEdit, setFotosEdit] = useState<FotoApi[]>([])
   const [subiendoFotos, setSubiendoFotos] = useState(false)
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
+  const [fotoDropOver, setFotoDropOver] = useState(false)
 
   async function authHeaders(): Promise<Record<string, string>> {
     const {
@@ -354,7 +355,7 @@ export default function ServiciosPage() {
     setMostrarForm(true)
   }
 
-  if (cargando) return <div className="text-gray-400 text-sm">Cargando...</div>
+  if (cargando) return <div className="text-sm text-ink-muted">Cargando...</div>
 
   const topeServ = capacidades?.maxServicios ?? 999
   const puedeNuevoServicio = capacidades?.puedeOperarNegocio && servicios.length < topeServ
@@ -365,8 +366,7 @@ export default function ServiciosPage() {
       <div className="max-w-2xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Servicios</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-ink-muted text-sm mt-0">
               {servicios.length} servicio{servicios.length !== 1 ? 's' : ''}
               {capacidades?.nivel === 'basic' &&
                 (topeServ >= 999 ? ' · servicios ilimitados en plan Básico' : ` · máx. ${topeServ} en plan Básico`)}
@@ -386,23 +386,25 @@ export default function ServiciosPage() {
               type="button"
               disabled={!puedeNuevoServicio}
               onClick={() => puedeNuevoServicio && nuevoServicio()}
-              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary inline-flex w-full shrink-0 items-center justify-center gap-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus className="w-4 h-4" /> Agregar servicio
+              <Plus className="h-4 w-4" strokeWidth={2} /> Agregar servicio
             </button>
           )}
         </div>
 
         {mostrarForm && (
           <div className="card mb-6">
-            <h2 className="font-semibold text-gray-900 mb-4">{editando ? 'Editar servicio' : 'Nuevo servicio'}</h2>
+            <h2 className="mb-4 font-heading text-lg font-semibold text-ink">
+              {editando ? 'Editar servicio' : 'Nuevo servicio'}
+            </h2>
             <div className="space-y-4">
               <div>
                 <label className="label">Nombre del servicio *</label>
                 <input
                   value={form.nombre}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                  className="input"
+                  className="input-r12"
                   placeholder="Ej: Corte clásico, Barba, Keratina..."
                 />
               </div>
@@ -411,17 +413,17 @@ export default function ServiciosPage() {
                 <textarea
                   value={form.descripcion}
                   onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                  className="input resize-none h-16"
+                  className="input-r12 h-20 resize-none"
                   placeholder="Descripción opcional del servicio"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label">Duración (minutos) *</label>
                   <select
                     value={form.duracion}
                     onChange={e => setForm(f => ({ ...f, duracion: e.target.value }))}
-                    className="input"
+                    className="input-r12"
                   >
                     {[15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240].map(v => (
                       <option key={v} value={v}>
@@ -435,104 +437,146 @@ export default function ServiciosPage() {
                   <input
                     value={form.precio}
                     onChange={e => setForm(f => ({ ...f, precio: e.target.value }))}
-                    className="input"
+                    className="input-r12"
                     type="number"
                     min="0"
                     step="0.50"
                     placeholder="Ej: 8.00"
                   />
-                  <p className="text-xs text-gray-400 mt-1">El pago se realiza en el local</p>
+                  <p className="mt-1 text-xs text-ink-muted">El pago se realiza en el local</p>
                 </div>
               </div>
 
               {editando && (
-                <div className="border-t border-gray-100 pt-4">
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="border-t border-border pt-5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
                     <label className="label mb-0">Fotos del servicio</label>
-                    <span className="text-xs font-medium text-gray-500">
+                    <span className="text-xs font-medium text-ink-muted">
                       {fotosCount}/{MAX_FOTOS_POR_SERVICIO} fotos
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-3">JPG, PNG o WEBP · máx. 3 MB cada una</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-                    {fotosEdit.map((f, idx) => (
-                      <div
-                        key={f.id}
-                        className="relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50 aspect-square min-h-[120px]"
-                      >
-                        {f.signedUrl ? (
-                          <Image
-                            src={f.signedUrl}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            unoptimized
-                            sizes="(max-width: 640px) 50vw, 120px"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Scissors className="w-8 h-8 text-gray-300" />
+                  <p className="mb-4 text-xs text-ink-muted">JPG, PNG o WEBP · máx. 3 MB cada una</p>
+
+                  <div
+                    onDragEnter={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFotoDropOver(true)
+                    }}
+                    onDragLeave={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFotoDropOver(false)
+                    }}
+                    onDragOver={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onDrop={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setFotoDropOver(false)
+                      if (!editando) return
+                      const files = e.dataTransfer.files
+                      if (files.length) void subirFotos(editando.id, files)
+                    }}
+                    className={cn(
+                      'rounded-xl border-2 border-dashed p-4 transition-colors duration-200',
+                      fotoDropOver
+                        ? 'border-brand-primary bg-brand-light'
+                        : 'border-border bg-chalk hover:border-border-hover hover:bg-brand-light'
+                    )}
+                  >
+                    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {fotosEdit.map((f, idx) => (
+                        <div
+                          key={f.id}
+                          className="relative aspect-square min-h-[120px] overflow-hidden rounded-[12px] border border-border bg-surface"
+                        >
+                          {f.signedUrl ? (
+                            <Image
+                              src={f.signedUrl}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              unoptimized
+                              sizes="(max-width: 640px) 50vw, 120px"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Scissors className="h-8 w-8 text-ink-muted/40" />
+                            </div>
+                          )}
+                          <div className="absolute left-1.5 top-1.5 flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => moverFoto(editando.id, f.id, -1)}
+                              className="rounded-md border border-border bg-chalk/95 p-1 shadow-sm backdrop-blur-sm disabled:opacity-30"
+                              aria-label="Subir en el carrusel"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5 text-ink-soft" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx >= fotosEdit.length - 1}
+                              onClick={() => moverFoto(editando.id, f.id, 1)}
+                              className="rounded-md border border-border bg-chalk/95 p-1 shadow-sm backdrop-blur-sm disabled:opacity-30"
+                              aria-label="Bajar en el carrusel"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5 text-ink-soft" />
+                            </button>
                           </div>
-                        )}
-                        <div className="absolute top-1 right-1 flex flex-col gap-0.5">
                           <button
                             type="button"
-                            disabled={idx === 0}
-                            onClick={() => moverFoto(editando.id, f.id, -1)}
-                            className="p-1 rounded bg-white/90 shadow border border-gray-200 disabled:opacity-30"
-                            aria-label="Subir en el carrusel"
+                            onClick={() => void eliminarFoto(editando.id, f.id)}
+                            className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-ink/75 text-white shadow-md transition-colors hover:bg-ink"
+                            aria-label="Eliminar foto"
                           >
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx >= fotosEdit.length - 1}
-                            onClick={() => moverFoto(editando.id, f.id, 1)}
-                            className="p-1 rounded bg-white/90 shadow border border-gray-200 disabled:opacity-30"
-                            aria-label="Bajar en el carrusel"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
+                            <X className="h-4 w-4" strokeWidth={2.5} />
                           </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void eliminarFoto(editando.id, f.id)}
-                          className="absolute bottom-1 left-1 right-1 text-xs py-1 rounded bg-red-600 text-white hover:bg-red-700"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+
+                    <label
+                      className={cn(
+                        'inline-flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-chalk/50 px-4 py-6 text-center transition-colors hover:border-brand-primary/50 hover:bg-brand-light sm:py-8',
+                        fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos ? 'pointer-events-none opacity-50' : ''
+                      )}
+                    >
+                      <ImageIcon className="h-8 w-8 text-brand-primary" strokeWidth={1.5} />
+                      <span className="text-sm font-medium text-ink-soft">
+                        {subiendoFotos ? 'Subiendo…' : 'Arrastra fotos aquí o toca para elegir'}
+                      </span>
+                      <span className="text-xs text-ink-muted">Hasta {MAX_FOTOS_POR_SERVICIO} fotos por servicio</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        className="sr-only"
+                        disabled={fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos}
+                        onChange={e => {
+                          const picked = e.target.files ? Array.from(e.target.files) : []
+                          e.target.value = ''
+                          if (picked.length && editando) void subirFotos(editando.id, picked)
+                        }}
+                      />
+                    </label>
                   </div>
-                  <label
-                    className={`btn-secondary inline-flex items-center gap-2 cursor-pointer w-fit ${
-                      fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos ? 'opacity-50 pointer-events-none' : ''
-                    }`}
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                    {subiendoFotos ? 'Subiendo…' : 'Agregar fotos'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      multiple
-                      className="sr-only"
-                      disabled={fotosCount >= MAX_FOTOS_POR_SERVICIO || subiendoFotos}
-                      onChange={e => {
-                        // Copiar antes de vaciar: si no, el FileList se limpia y la subida queda en 0 archivos (silencioso).
-                        const picked = e.target.files ? Array.from(e.target.files) : []
-                        e.target.value = ''
-                        if (picked.length && editando) void subirFotos(editando.id, picked)
-                      }}
-                    />
-                  </label>
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <button onClick={() => void guardar()} disabled={guardando} className="btn-primary">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => void guardar()}
+                  disabled={guardando}
+                  className="btn-primary w-full sm:w-auto"
+                >
                   {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar y continuar'}
                 </button>
-                <button onClick={cancelar} className="btn-secondary">
+                <button type="button" onClick={cancelar} className="btn-secondary w-full sm:w-auto">
                   Cancelar
                 </button>
               </div>
@@ -541,68 +585,99 @@ export default function ServiciosPage() {
         )}
 
         {servicios.length === 0 ? (
-          <div className="card text-center py-12">
-            <Scissors className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm mb-4">No tienes servicios agregados todavía</p>
+          <div className="card py-12 text-center">
+            <Scissors className="mx-auto mb-3 h-12 w-12 text-ink-muted/40" strokeWidth={1.25} />
+            <p className="mb-4 text-sm text-ink-muted">No tienes servicios agregados todavía</p>
             <button
               type="button"
               disabled={!puedeNuevoServicio}
               onClick={() => puedeNuevoServicio && nuevoServicio()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full max-w-xs disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus className="w-4 h-4 inline mr-2" /> Agregar el primero
+              <Plus className="mr-2 inline h-4 w-4" strokeWidth={2} /> Agregar el primero
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <ul className="space-y-4">
             {servicios.map(s => (
-              <div key={s.id} className="card flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gray-100 border border-gray-100 overflow-hidden flex items-center justify-center shrink-0">
-                  {thumbUrls[s.id] ? (
-                    <Image
-                      src={thumbUrls[s.id]}
-                      alt={s.nombre}
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <Scissors className="w-6 h-6 text-brand-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{s.nombre}</p>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-gray-400">{s.duracion} min</span>
-                    {s.precio && <span className="text-xs text-gray-500 font-medium">${s.precio}</span>}
-                    {s.descripcion && <span className="text-xs text-gray-400 truncate">{s.descripcion}</span>}
+              <li key={s.id}>
+                <div className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 md:p-6">
+                  <div className="flex min-w-0 flex-1 gap-4">
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[12px] border border-border bg-surface">
+                      {thumbUrls[s.id] ? (
+                        <Image
+                          src={thumbUrls[s.id]}
+                          alt={s.nombre}
+                          width={160}
+                          height={160}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Scissors className="h-8 w-8 text-brand-primary/50" strokeWidth={1.5} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-heading text-base font-semibold leading-snug text-ink">{s.nombre}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-ink-muted">
+                          {s.duracion} min
+                        </span>
+                        {s.precio != null && (
+                          <span className="font-heading text-lg font-bold text-brand-primary">
+                            {formatPrecio(Number(s.precio))}
+                          </span>
+                        )}
+                      </div>
+                      {s.descripcion && (
+                        <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{s.descripcion}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border pt-3 sm:border-t-0 sm:pt-0">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={s.activo}
+                      onClick={() => void toggleActivo(s)}
+                      className={cn(
+                        'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/35',
+                        s.activo ? 'bg-brand-primary' : 'bg-border'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-out',
+                          s.activo ? 'translate-x-6' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => abrirEditar(s)}
+                        className="rounded-lg p-2 text-ink-muted transition-colors hover:bg-surface hover:text-ink"
+                        aria-label="Editar servicio"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void eliminar(s.id)}
+                        className="rounded-lg p-2 text-danger/80 transition-colors hover:bg-red-50 hover:text-danger"
+                        aria-label="Eliminar servicio"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`badge ${s.activo ? 'badge-green' : 'badge-gray'}`}>
-                    {s.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                  <button
-                    onClick={() => toggleActivo(s)}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    {s.activo ? (
-                      <ToggleRight className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <ToggleLeft className="w-5 h-5 text-gray-400" />
-                    )}
-                  </button>
-                  <button onClick={() => abrirEditar(s)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                    <Pencil className="w-4 h-4 text-gray-400" />
-                  </button>
-                  <button onClick={() => void eliminar(s.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                    <Trash2 className="w-4 h-4 text-red-400" />
-                  </button>
-                </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </RequierePlanOperativo>

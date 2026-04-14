@@ -77,8 +77,8 @@ export default function DashboardPage() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 capitalize">{fechaHoy}</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Agenda de hoy — {negocio?.nombre}</p>
+          <h2 className="font-heading text-2xl font-bold text-ink capitalize">{fechaHoy}</h2>
+          <p className="text-ink-muted text-sm mt-0.5">Agenda de hoy — {negocio?.nombre}</p>
         </div>
         <div className="flex gap-3">
           <a href={`/reservar/${negocio?.slug}`} target="_blank" rel="noopener noreferrer"

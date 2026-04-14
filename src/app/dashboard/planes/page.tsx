@@ -179,7 +179,6 @@ export default function PlanesPage() {
           <CreditCard className="w-5 h-5 text-brand-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Planes y facturación</h1>
           <p className="text-gray-500 text-sm mt-1">
             Precios en USD sin IVA. El total mensual con IVA Ecuador 15% se muestra debajo de cada plan.
           </p>

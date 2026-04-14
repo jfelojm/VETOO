@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ArrowLeft, Calendar, LogOut, Mail, Phone, Scissors, User } from 'lucide-react'
+import { ArrowLeft, Calendar, LogOut, Mail, Phone, User } from 'lucide-react'
+import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 import NotasStaffCliente from '@/components/clientes/NotasStaffCliente'
 import { nombreClienteReservaRow } from '@/lib/utils'
 
@@ -121,7 +122,7 @@ export default function BarberoClienteFichaPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Scissors className="w-8 h-8 text-brand-600 mx-auto mb-3 animate-pulse" />
+          <TurnAppSymbol size={36} color="#0D9B6A" className="mx-auto mb-3 animate-pulse" aria-hidden />
           <p className="text-gray-400 text-sm">Cargando…</p>
         </div>
       </div>
@@ -145,7 +146,7 @@ export default function BarberoClienteFichaPage() {
     <div className="min-h-screen bg-gray-50 pb-10">
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <Scissors className="w-6 h-6 text-brand-600 shrink-0" />
+          <TurnAppLogo variant="light" size="sm" href="/barbero/dashboard" className="shrink-0" />
           <span className="font-semibold text-gray-900 truncate">Ficha cliente</span>
         </div>
         <button

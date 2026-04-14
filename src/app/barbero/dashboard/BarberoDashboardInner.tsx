@@ -17,7 +17,6 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import Link from 'next/link'
 import {
-  Scissors,
   LogOut,
   Phone,
   Mail,
@@ -29,7 +28,9 @@ import {
   ChevronLeft,
   Trash2,
   User,
+  Scissors,
 } from 'lucide-react'
+import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 import type { SlotDisponible, Servicio } from '@/types'
 import CalendarioMes from '@/components/calendario/CalendarioMes'
 import GrillaHorarios from '@/components/calendario/GrillaHorarios'
@@ -459,7 +460,7 @@ export default function BarberoDashboard() {
   if (cargando || !barbero?.negocio) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Scissors className="w-8 h-8 text-brand-600 animate-pulse" />
+        <TurnAppSymbol size={36} color="#0D9B6A" className="animate-pulse" aria-hidden />
       </div>
     )
   }
@@ -471,8 +472,7 @@ export default function BarberoDashboard() {
       <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Scissors className="w-5 h-5 text-brand-600" />
-            <span className="font-bold text-sm">Turnapp</span>
+            <TurnAppLogo variant="light" size="sm" href="/barbero/dashboard" />
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{neg.nombre}</p>
         </div>

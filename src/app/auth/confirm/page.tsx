@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Scissors } from 'lucide-react'
+import { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 
 export default function AuthConfirmPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -134,7 +134,7 @@ export default function AuthConfirmPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        <Scissors className="w-8 h-8 text-brand-600 mx-auto mb-3 animate-pulse" />
+        <TurnAppSymbol size={36} color="#0D9B6A" className="mx-auto mb-3 animate-pulse" aria-hidden />
         <p className="text-gray-400 text-sm">Verificando tu acceso...</p>
       </div>
     </div>

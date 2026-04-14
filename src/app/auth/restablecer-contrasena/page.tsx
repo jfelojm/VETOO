@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Scissors, Eye, EyeOff, ChevronLeft } from 'lucide-react'
+import { Eye, EyeOff, ChevronLeft } from 'lucide-react'
+import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -109,7 +110,7 @@ export default function RestablecerContrasenaPage() {
   if (!sesionOk) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Scissors className="w-8 h-8 text-brand-600 animate-pulse" />
+        <TurnAppSymbol size={36} color="#0D9B6A" className="animate-pulse" aria-hidden />
       </div>
     )
   }
@@ -125,9 +126,8 @@ export default function RestablecerContrasenaPage() {
         </Link>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">Turnapp</span>
+          <div className="mb-2 flex justify-center">
+            <TurnAppLogo variant="light" size="lg" href="/" />
           </div>
           <p className="text-gray-500 text-sm">Nueva contraseña</p>
         </div>

@@ -10,6 +10,11 @@ import {
   elegirBarberoParaSinPreferencia,
   slotDisponibleParaBarberoConcreto,
 } from '@/lib/reservas-capacidad'
+import { enviarRecordatorioWhatsappWebhook } from '@/lib/recordatorios-canales'
+import {
+  DEFAULT_FROM_EMAIL,
+  htmlEmailConfirmacionReserva,
+} from '@/lib/emails/transactional-html'
 
 const TZ_NEGOCIO = process.env.NEGOCIO_TIMEZONE || 'America/Guayaquil'
 
@@ -65,6 +70,13 @@ export async function POST(req: NextRequest) {
 
     if (!negocio || !negocio.activo) {
       return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
+    }
+
+    if ((negocio as { is_demo?: boolean }).is_demo === true) {
+      return NextResponse.json(
+        { error: 'Este es un negocio de demostración; no se pueden crear reservas reales.', code: 'DEMO_BLOCK' },
+        { status: 403 }
+      )
     }
 
     let duracion = negocio.duracion_turno_min
@@ -260,37 +272,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
     }
 
-    // Enviar emails directamente
-    const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+    let emailAdministrador = negocio.email?.trim() || null
+    if (!emailAdministrador && negocio.owner_id) {
+      const admin = createAdminClient()
+      const { data: ownerAuth } = await admin.auth.admin.getUserById(negocio.owner_id)
+      emailAdministrador = ownerAuth?.user?.email?.trim() ?? null
+    }
+
+    const { data: cliente } = await supabase
+      .from('clientes')
+      .select('nombre, telefono, email')
+      .eq('id', clienteId)
+      .single()
+    const { data: barbero } = await supabase
+      .from('barberos')
+      .select('nombre, email')
+      .eq('id', barberoInsert)
+      .single()
+    const { data: servicio } = data.servicio_id
+      ? await supabase.from('servicios').select('nombre').eq('id', data.servicio_id).single()
+      : { data: null }
+
+    const fechaStr = new Date(data.fecha_hora).toLocaleString('es-EC', {
+      weekday: 'long', day: 'numeric', month: 'long',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'America/Guayaquil',
+    })
+
+    const telTxt = cliente?.telefono ? String(cliente.telefono) : '—'
+    const mailTxt = cliente?.email ? String(cliente.email) : '—'
+
+    // Emails (Resend): dueño/cuenta negocio, profesional con email distinto, cliente.
+    const FROM = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL
     try {
       const { Resend } = await import('resend')
       const resend = new Resend(process.env.RESEND_API_KEY)
-
-      let emailAdministrador = negocio.email?.trim() || null
-      if (!emailAdministrador) {
-        const admin = createAdminClient()
-        const { data: ownerAuth } = await admin.auth.admin.getUserById(negocio.owner_id)
-        emailAdministrador = ownerAuth?.user?.email?.trim() ?? null
-      }
-      const { data: cliente } = await supabase
-        .from('clientes').select('nombre, telefono, email').eq('id', clienteId).single()
-      const { data: barbero } = await supabase
-        .from('barberos')
-        .select('nombre, email')
-        .eq('id', barberoInsert)
-        .single()
-      const { data: servicio } = data.servicio_id
-        ? await supabase.from('servicios').select('nombre').eq('id', data.servicio_id).single()
-        : { data: null }
-
-      const fechaStr = new Date(data.fecha_hora).toLocaleString('es-EC', {
-        weekday: 'long', day: 'numeric', month: 'long',
-        hour: '2-digit', minute: '2-digit', hour12: false,
-        timeZone: 'America/Guayaquil'
-      })
-
-      const telTxt = cliente?.telefono ? String(cliente.telefono) : '—'
-      const mailTxt = cliente?.email ? String(cliente.email) : '—'
 
       if (emailAdministrador) {
         await resend.emails.send({
@@ -313,7 +329,11 @@ export async function POST(req: NextRequest) {
       }
 
       const barberoEmail = (barbero as { nombre?: string; email?: string | null } | null)?.email?.trim()
-      if (barberoEmail) {
+      const mismoCorreoAdminYBarbero =
+        !!barberoEmail &&
+        !!emailAdministrador &&
+        barberoEmail.toLowerCase() === emailAdministrador.toLowerCase()
+      if (barberoEmail && !mismoCorreoAdminYBarbero) {
         await resend.emails.send({
           from: FROM,
           to: barberoEmail,
@@ -333,24 +353,56 @@ export async function POST(req: NextRequest) {
       }
 
       if (cliente?.email) {
+        const htmlCliente = htmlEmailConfirmacionReserva({
+          clienteNombre: nombreReserva,
+          negocioNombre: negocio.nombre,
+          negocioDireccion: negocio.direccion ?? null,
+          negocioSlug: negocio.slug,
+          servicioNombre: servicio ? String((servicio as { nombre?: string }).nombre ?? '') : null,
+          staffNombre: barbero ? String((barbero as { nombre?: string }).nombre ?? '') : null,
+          fechaHoraIso: data.fecha_hora,
+          duracionMin: duracion,
+          cancelacionHorasMin: Number(negocio.cancelacion_horas_minimo ?? 2),
+          politicaExtra: negocio.cancelacion_mensaje ?? null,
+          appBaseUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
+        })
         await resend.emails.send({
           from: FROM,
           to: cliente.email,
           subject: `Reserva confirmada en ${negocio.nombre}`,
-          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-            <h2 style="color:#e05f10;">¡Reserva confirmada!</h2>
-            <p>Hola <strong>${nombreReserva}</strong>, tu reserva en <strong>${negocio.nombre}</strong> fue confirmada.</p>
-            <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
-              ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${(servicio as any).nombre}</p>` : ''}
-              ${barbero ? `<p style="margin:4px 0;"><strong>Barbero:</strong> ${(barbero as any).nombre}</p>` : ''}
-              <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
-            </div>
-            <p style="color:#666;font-size:14px;">El pago se realiza en el local. ¡Te esperamos!</p>
-          </div>`,
+          html: htmlCliente,
         })
       }
     } catch (e) {
-      console.log('Email no enviado:', e)
+      console.log('Email reserva no enviado:', e)
+    }
+
+    // WhatsApp (webhook opcional; mismo que recordatorios). Independiente de Resend.
+    try {
+      if (process.env.NOTIFICACIONES_WHATSAPP_WEBHOOK_URL?.trim()) {
+        const svcNombre = servicio ? String((servicio as { nombre?: string }).nombre ?? '') : ''
+        const barbNombre = barbero ? String((barbero as { nombre?: string }).nombre ?? '') : ''
+        if (telefonoValido(cliente?.telefono ?? undefined)) {
+          const msgCli =
+            `Hola ${nombreReserva}, tu reserva en ${negocio.nombre} está confirmada. ${fechaStr}.` +
+            (svcNombre ? ` Servicio: ${svcNombre}.` : '') +
+            (barbNombre ? ` Profesional: ${barbNombre}.` : '') +
+            ` Te esperamos en el local.`
+          void enviarRecordatorioWhatsappWebhook(String(cliente!.telefono), msgCli)
+        }
+        const neg = negocio as { whatsapp?: string | null; telefono?: string | null }
+        const telNegocio = (neg.whatsapp?.trim() || neg.telefono?.trim()) ?? ''
+        if (telefonoValido(telNegocio)) {
+          const msgNeg =
+            `Nueva reserva — ${negocio.nombre}: ${nombreReserva}. ${fechaStr}.` +
+            (svcNombre ? ` ${svcNombre}.` : '') +
+            (barbNombre ? ` Profesional: ${barbNombre}.` : '') +
+            ` Tel. cliente: ${telTxt}.`
+          void enviarRecordatorioWhatsappWebhook(telNegocio, msgNeg)
+        }
+      }
+    } catch (e) {
+      console.log('WhatsApp reserva no enviado:', e)
     }
 
     return NextResponse.json(

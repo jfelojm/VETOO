@@ -3,9 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { addHours } from 'date-fns'
 import { enviarRecordatorioWhatsappWebhook } from '@/lib/recordatorios-canales'
+import {
+  DEFAULT_FROM_EMAIL,
+  htmlEmailRecordatorioReserva,
+} from '@/lib/emails/transactional-html'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+const FROM = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL
 
 export async function GET(req: NextRequest) {
   // Verificar que viene del cron de Vercel
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest) {
   const en25h = addHours(ahora, 25)
 
   const selectJoin =
-    '*, cliente:clientes(nombre, email, telefono), negocio:negocios(nombre, recordatorio_email_cliente, recordatorio_whatsapp_cliente), barbero:barberos(nombre), servicio:servicios(nombre)'
+    '*, cliente:clientes(nombre, email, telefono), negocio:negocios(nombre, slug, direccion, email, telefono, cancelacion_horas_minimo, recordatorio_email_cliente, recordatorio_whatsapp_cliente, is_demo), barbero:barberos(nombre), servicio:servicios(nombre)'
 
   // Límite superior estricto (.lt): si usáramos .lte, la misma cita en el borde coincidiría en dos
   // ejecuciones horarias del cron y se duplicarían los correos.
@@ -62,9 +66,17 @@ export async function GET(req: NextRequest) {
     } | null
     const negocio = reserva.negocio as {
       nombre?: string
+      slug?: string
+      direccion?: string | null
+      email?: string | null
+      telefono?: string | null
+      cancelacion_horas_minimo?: number | null
       recordatorio_email_cliente?: boolean | null
       recordatorio_whatsapp_cliente?: boolean | null
+      is_demo?: boolean | null
     } | null
+
+    if (negocio?.is_demo) continue
     const barbero = reserva.barbero as { nombre?: string } | null
     const servicio = reserva.servicio as { nombre?: string } | null
     const nombreCliente =
@@ -93,21 +105,29 @@ export async function GET(req: NextRequest) {
 
     if (emailOn && cliente?.email?.trim()) {
       try {
+        const slug = (negocio?.slug ?? '').trim() || 'reservar'
+        const html = htmlEmailRecordatorioReserva({
+          clienteNombre: nombreCliente,
+          negocioNombre: negocio?.nombre ?? 'el local',
+          negocioDireccion: negocio?.direccion ?? null,
+          negocioSlug: slug,
+          negocioEmail: negocio?.email ?? null,
+          negocioTelefono: negocio?.telefono ?? null,
+          servicioNombre: servicio?.nombre ?? null,
+          staffNombre: barbero?.nombre ?? null,
+          fechaHoraIso: reserva.fecha_hora as string,
+          ventana: es2h ? '2h' : '24h',
+          cancelacionHorasMin: negocio?.cancelacion_horas_minimo ?? 2,
+          appBaseUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
+        })
+        const subject = es2h
+          ? `Recordatorio: tu cita en 2 horas — ${negocio?.nombre ?? ''}`
+          : `Recordatorio: tu cita mañana — ${negocio?.nombre ?? ''}`
         await resend.emails.send({
           from: FROM,
           to: cliente.email,
-          subject: `Recordatorio: tu turno ${texto} en ${negocio?.nombre}`,
-          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-        <h2 style="color:#e05f10;">Recordatorio de tu reserva</h2>
-        <p>Hola <strong>${nombreCliente}</strong>, te recordamos que tienes un turno <strong>${texto}</strong>.</p>
-        <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
-          <p style="margin:4px 0;"><strong>Negocio:</strong> ${negocio?.nombre}</p>
-          ${servicio ? `<p style="margin:4px 0;"><strong>Servicio:</strong> ${servicio.nombre}</p>` : ''}
-          ${barbero ? `<p style="margin:4px 0;"><strong>Profesional:</strong> ${barbero.nombre}</p>` : ''}
-          <p style="margin:4px 0;"><strong>Fecha:</strong> ${fechaStr}</p>
-        </div>
-        <p style="color:#666;font-size:14px;">El pago se realiza en el local. ¡Te esperamos!</p>
-      </div>`,
+          subject: subject.trim(),
+          html,
         })
         enviados++
       } catch (e) {

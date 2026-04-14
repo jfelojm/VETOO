@@ -6,7 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Scissors, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
+import TurnAppLogo from '@/components/brand/TurnAppLogo'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -70,9 +71,8 @@ function LoginForm() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <Scissors className="w-7 h-7 text-brand-600" />
-            <span className="text-xl font-bold">Turnapp</span>
+          <div className="mb-2 flex justify-center">
+            <TurnAppLogo variant="light" size="lg" href="/" />
           </div>
           <p className="text-gray-500 text-sm">Inicia sesión en tu panel</p>
         </div>

@@ -4,7 +4,42 @@
 
 @layer base {
   :root {
-    --brand: #e05f10;
+    /* TurnApp design system — primarios */
+    --brand-primary: #0d9b6a;
+    --brand-dark: #085041;
+    --brand-light: #e1f5ee;
+    --brand-glow: #2ed8a3;
+
+    /* Neutrales */
+    --ink: #0a0a0f;
+    --ink-soft: #333338;
+    --ink-muted: #6b6b76;
+    --chalk: #fafaf9;
+    --surface: #f3f2ef;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.15);
+
+    /* Semánticos */
+    --success: #0d9b6a;
+    --warning: #e8a317;
+    --danger: #d93e3e;
+    --info: #2b7bd4;
+
+    /* Sombras */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.08);
+    --shadow-brand: 0 8px 24px rgba(13, 155, 106, 0.25);
+
+    /* Radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 32px;
+    --radius-full: 100px;
+
+    /* Transición */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   * {
@@ -16,43 +51,155 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-chalk text-ink antialiased;
+    transition-timing-function: var(--ease-out);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+    font-weight: 600;
+    color: var(--ink);
   }
 }
 
 @layer components {
-  /* Botón principal naranja */
   .btn-primary {
-    @apply bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-brand-primary hover:bg-brand-dark active:bg-brand-dark text-white font-medium px-4 py-2.5 rounded-xl transition-colors duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed;
+    box-shadow: var(--shadow-brand);
   }
 
-  /* Botón secundario */
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-medium px-4 py-2.5 rounded-xl transition-colors;
+    @apply bg-chalk hover:bg-surface border border-border text-ink-soft font-medium px-4 py-2.5 rounded-xl transition-colors duration-200 ease-out hover:border-border-hover;
   }
 
-  /* Input de formulario */
+  /* Secundario tipo ghost (dashboard / acciones suaves) */
+  .btn-ghost {
+    @apply bg-transparent hover:bg-black/[0.04] text-ink-soft font-medium px-4 py-2.5 rounded-xl border border-transparent transition-colors duration-200 ease-out hover:border-border;
+  }
+
   .input {
-    @apply w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow;
+    @apply w-full px-3 py-2.5 rounded-xl text-sm bg-white text-ink transition-shadow duration-200 ease-out;
+    border: 1px solid var(--border);
+  }
+  .input::placeholder {
+    color: var(--ink-muted);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(13, 155, 106, 0.2);
   }
 
-  /* Card base */
+  /* Inputs con radio 12px (formularios servicios, etc.) */
+  .input-r12 {
+    @apply w-full px-3 py-2.5 text-sm bg-white text-ink transition-shadow duration-200 ease-out;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+  .input-r12::placeholder {
+    color: var(--ink-muted);
+  }
+  .input-r12:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(13, 155, 106, 0.2);
+  }
+
+  /* Contenido dashboard: chalk, radio 20px, hover elevación */
   .card {
-    @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-6;
+    @apply bg-chalk rounded-lg p-6 md:p-8 transition-all duration-200 ease-out;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
 
-  /* Label de formulario */
+  .dashboard-stack {
+    @apply flex flex-col gap-4 md:gap-6;
+  }
+
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1.5;
+    @apply block text-sm font-medium mb-1.5 text-ink-soft;
   }
 
-  /* Badge de estado */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
-  .badge-green  { @apply bg-green-100 text-green-800; }
-  .badge-amber  { @apply bg-amber-100 text-amber-800; }
-  .badge-red    { @apply bg-red-100 text-red-800; }
-  .badge-gray   { @apply bg-gray-100 text-gray-600; }
-  .badge-blue   { @apply bg-blue-100 text-blue-800; }
+  .badge-green {
+    @apply bg-brand-light text-brand-dark;
+  }
+  .badge-amber {
+    @apply bg-amber-50 text-amber-900;
+  }
+  .badge-red {
+    @apply bg-red-50 text-red-800;
+  }
+  .badge-gray {
+    @apply bg-surface text-ink-muted;
+  }
+  .badge-blue {
+    @apply bg-blue-50 text-blue-800;
+  }
+
+  /* Landing TurnApp — esmeralda */
+  .landing-grain {
+    position: relative;
+  }
+  .landing-grain::before {
+    content: '';
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .landing-btn-primary {
+    @apply rounded-xl bg-brand-primary font-medium text-white shadow-brand transition-all duration-200 ease-out;
+    @apply hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-lg active:translate-y-0;
+  }
+
+  .landing-btn-secondary {
+    @apply rounded-xl border border-border bg-chalk font-medium text-ink-soft shadow-sm transition-all duration-200 ease-out;
+    @apply hover:-translate-y-0.5 hover:border-border-hover hover:bg-surface hover:shadow-md;
+  }
+
+  .landing-card-dark {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .landing-pricing-card {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .landing-stat-card {
+    @apply border border-border bg-chalk;
+  }
+
+  @keyframes landing-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .landing-float {
+    animation: landing-float 5s ease-in-out infinite;
+  }
+
+  .landing-float-delayed {
+    animation: landing-float 5.8s ease-in-out infinite;
+    animation-delay: -1.5s;
+  }
 }

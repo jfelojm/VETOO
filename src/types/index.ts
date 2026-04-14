@@ -56,8 +56,13 @@ export interface Negocio {
   plan_expira_at:                string | null
   trial_expira_at:               string | null
   activo:       boolean
-  owner_id:     string
+  /** null solo si is_demo (negocio de exploración sin cuenta owner) */
+  owner_id:     string | null
   tipo_negocio?: string | null
+  /** Exploración pública /reservar/demo — sin reservas reales */
+  is_demo?:     boolean
+  timezone?:    string | null
+  theme_primary?: string | null
 }
 
 export interface Barbero {

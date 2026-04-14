@@ -244,46 +244,46 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
   }
 
   return (
-    <div className="card border border-gray-100">
-      <div className="flex items-center gap-2 mb-4">
-        <StickyNote className="w-5 h-5 text-brand-600 shrink-0" />
+    <div className="card border border-border">
+      <div className="mb-4 flex items-center gap-2">
+        <StickyNote className="h-5 w-5 shrink-0 text-brand-primary" strokeWidth={2} />
         <div>
-          <h2 className="font-semibold text-gray-900">Notas del staff</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="font-heading font-semibold text-ink">Notas del staff</h2>
+          <p className="text-xs text-ink-muted">
             Solo visible para tu equipo. El cliente no ve este apartado.
           </p>
         </div>
       </div>
 
       {miBarberoId === null && !cargando && !error && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-4">
+        <p className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-ink-soft">
           No pudimos asociar tu usuario a un profesional del equipo. Pide al dueño que revise tu ficha en{' '}
-          <span className="font-medium">Equipo</span> (correo coincidente o invitación). Cierra sesión y vuelve
+          <span className="font-medium text-ink">Equipo</span> (correo coincidente o invitación). Cierra sesión y vuelve
           a entrar si acabas de ser dado de alta.
         </p>
       )}
 
       {cargando && (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
-          <Loader2 className="w-4 h-4 animate-spin" /> Cargando notas…
+        <div className="flex items-center gap-2 py-4 text-sm text-ink-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando notas…
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
       {!cargando && miBarberoId && (
         <div className="mb-6 space-y-2">
           <label className="label">Nueva nota</label>
           <textarea
-            className="input resize-none min-h-[88px]"
+            className="input input-r12 resize-none min-h-[88px]"
             placeholder="Ej. prefiere fade bajo, alérgico a cierto tinte…"
             value={nuevo}
             onChange={e => setNuevo(e.target.value)}
             disabled={enviando}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-              <ImagePlus className="w-4 h-4" />
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
+              <ImagePlus className="h-4 w-4 text-brand-primary" />
               Fotos (hasta {MAX_FOTOS}, 5 MB c/u)
               <input
                 type="file"
@@ -295,7 +295,7 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
               />
             </label>
             {archivosPendientes.length > 0 && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-ink-muted">
                 {archivosPendientes.length} archivo(s) se subirán al guardar
               </span>
             )}
@@ -313,52 +313,52 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
 
       <div className="space-y-4">
         {notas.length === 0 && !cargando && (
-          <p className="text-sm text-gray-400 text-center py-6">Aún no hay notas internas.</p>
+          <p className="py-6 text-center text-sm text-ink-muted">Aún no hay notas internas.</p>
         )}
         {notas.map(n => (
           <div
             key={n.id}
-            className="rounded-xl border border-gray-100 bg-gray-50/80 p-4"
+            className="rounded-[12px] border border-border bg-surface p-4"
           >
-            <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="mb-2 flex items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-medium text-gray-900">{n.autor_nombre}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-ink">{n.autor_nombre}</p>
+                <p className="text-xs text-ink-muted">
                   {format(parseISO(n.created_at), "d MMM yyyy · HH:mm", { locale: es })}
                   {n.updated_at !== n.created_at && ' · editada'}
                 </p>
               </div>
               {n.es_mia && (
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex shrink-0 items-center gap-1">
                   {editId !== n.id ? (
                     <>
                       <button
                         type="button"
-                        className="p-1.5 rounded-lg text-gray-500 hover:bg-white hover:text-gray-800"
+                        className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-chalk hover:text-ink"
                         aria-label="Editar nota"
                         onClick={() => {
                           setEditId(n.id)
                           setEditTexto(n.content)
                         }}
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-white"
+                        className="rounded-lg p-1.5 text-danger transition-colors hover:bg-chalk"
                         aria-label="Eliminar nota"
                         onClick={() => void eliminarNota(n.id)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </>
                   ) : (
                     <button
                       type="button"
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-white"
+                      className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-chalk"
                       onClick={() => setEditId(null)}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
@@ -368,7 +368,7 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
             {editId === n.id ? (
               <div className="space-y-2">
                 <textarea
-                  className="input resize-none min-h-[80px]"
+                  className="input input-r12 resize-none min-h-[80px]"
                   value={editTexto}
                   onChange={e => setEditTexto(e.target.value)}
                 />
@@ -382,33 +382,33 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
                 </button>
               </div>
             ) : (
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">{n.content}</p>
+              <p className="whitespace-pre-wrap text-sm text-ink-soft">{n.content}</p>
             )}
 
             {n.photos.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
                 {n.photos.map(ph => (
-                  <div key={ph.id} className="relative group">
+                  <div key={ph.id} className="group relative">
                     {ph.signedUrl ? (
                       <button
                         type="button"
-                        className="block rounded-lg overflow-hidden border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="block overflow-hidden rounded-[12px] border border-border focus:outline-none focus:ring-2 focus:ring-brand-primary"
                         onClick={() => setPreview(ph.signedUrl)}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={ph.signedUrl}
                           alt=""
-                          className="w-20 h-20 object-cover"
+                          className="h-20 w-full object-cover"
                         />
                       </button>
                     ) : (
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg" />
+                      <div className="h-20 rounded-[12px] bg-border/50" />
                     )}
                     {n.es_mia && editId !== n.id && (
                       <button
                         type="button"
-                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-danger text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
                         aria-label="Quitar foto"
                         onClick={() => void quitarFoto(n.id, ph.id)}
                       >
@@ -421,8 +421,8 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
             )}
 
             {n.es_mia && editId !== n.id && n.photos.length < MAX_FOTOS && (
-              <label className="inline-flex items-center gap-1 mt-2 text-xs text-brand-700 cursor-pointer">
-                <ImagePlus className="w-3.5 h-3.5" />
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-1 text-xs text-brand-dark">
+                <ImagePlus className="h-3.5 w-3.5 text-brand-primary" />
                 Añadir foto
                 <input
                   type="file"
@@ -447,7 +447,7 @@ export default function NotasStaffCliente({ clienteId }: { clienteId: string }) 
           aria-label="Cerrar"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+          <img src={preview} alt="" className="max-h-[90vh] max-w-full object-contain rounded-[12px]" />
         </button>
       )}
     </div>
