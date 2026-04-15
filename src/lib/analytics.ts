@@ -3,12 +3,13 @@
  * ID: NEXT_PUBLIC_GA_ID (preferido) o NEXT_PUBLIC_GA_MEASUREMENT_ID.
  */
 
-const DEFAULT_GA_ID = 'G-2B9N6PG9V5'
+export const GA_ID =
+  process.env.NEXT_PUBLIC_GA_ID ||
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+  'G-2B9N6PG9V5'
 
-export const GA_MEASUREMENT_ID =
-  (typeof process !== 'undefined' &&
-    (process.env.NEXT_PUBLIC_GA_ID || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)) ||
-  DEFAULT_GA_ID
+/** @deprecated usar GA_ID */
+export const GA_MEASUREMENT_ID = GA_ID
 
 function gtagSend(...args: unknown[]) {
   if (typeof window === 'undefined') return

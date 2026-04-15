@@ -22,6 +22,11 @@ const dmSans = DM_Sans({
 /** Dominio canónico (SEO) — no usar env aquí para evitar dominios duplicados en indexación */
 const SITE_URL = 'https://turnapp.lat'
 
+const GA_ID =
+  process.env.NEXT_PUBLIC_GA_ID ||
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+  'G-2B9N6PG9V5'
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: {
@@ -72,7 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="TurnApp" />
       </head>
       <body className={dmSans.className}>
-        <Analytics />
+        <Analytics gaId={GA_ID} />
         <AuthLandingHashRedirect />
         {children}
         <Toaster position="top-center" richColors />
