@@ -4,34 +4,26 @@ import Script from 'next/script'
 import { GA_MEASUREMENT_ID } from '@/lib/analytics'
 
 /**
- * Google Analytics 4 — tag de medición.
- * Sustituir G-XXXXXXXXXX vía NEXT_PUBLIC_GA_MEASUREMENT_ID en producción.
+ * Google Analytics 4 — tag de medición (`next/script`, afterInteractive).
+ * Cargado desde el layout (body) con el componente Analytics.
  *
- * Eventos usados en la app:
- * - register_intent: CTA a registro (navbar, hero)
- * - trial_start: “Empezar gratis” y CTAs equivalentes
- * - demo_explore: “Explorar demo”
- * - pricing_view: scroll a #precios
- * - whatsapp_contact: WhatsApp Premium
+ * Eventos en la landing: register_intent, trial_start, demo_explore, pricing_view, whatsapp_contact
  */
 export default function Analytics() {
-  const init = `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', '${GA_MEASUREMENT_ID}');
-  `
   return (
     <>
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
         strategy="afterInteractive"
       />
-      <Script
-        id="ga4-init"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: init }}
-      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_MEASUREMENT_ID}');
+        `}
+      </Script>
     </>
   )
 }

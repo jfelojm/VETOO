@@ -1,12 +1,14 @@
 /**
  * Google Analytics 4 — eventos de la app.
- * NEXT_PUBLIC_GA_MEASUREMENT_ID (p. ej. G-XXXXXXXXXX) lo configura Felipe en .env
+ * ID: NEXT_PUBLIC_GA_ID (preferido) o NEXT_PUBLIC_GA_MEASUREMENT_ID.
  */
 
+const DEFAULT_GA_ID = 'G-2B9N6PG9V5'
+
 export const GA_MEASUREMENT_ID =
-  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
-    ? process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
-    : 'G-XXXXXXXXXX'
+  (typeof process !== 'undefined' &&
+    (process.env.NEXT_PUBLIC_GA_ID || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)) ||
+  DEFAULT_GA_ID
 
 function gtagSend(...args: unknown[]) {
   if (typeof window === 'undefined') return
