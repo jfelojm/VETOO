@@ -36,7 +36,7 @@ export default function Pricing() {
         <ScrollReveal>
           <h2 className="text-center font-heading text-3xl font-bold text-ink md:text-4xl">Planes</h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-ink-muted">
-            Elige el plan que encaja con tu negocio. Premium es a medida: te armamos una propuesta personal.
+            Elige el plan que encaja con tu negocio. Todos incluyen staff ilimitado desde el día uno.
           </p>
         </ScrollReveal>
 
@@ -54,7 +54,7 @@ export default function Pricing() {
               </div>
               <ul className="mt-8 flex-1 space-y-2.5 text-sm text-ink-soft">
                 {[
-                  '2 staff',
+                  'Staff ilimitado',
                   'Reservas online con link',
                   'Confirmación por email',
                   'Recordatorios automáticos 24h y 2h',
@@ -86,7 +86,7 @@ export default function Pricing() {
                 ⭐
               </p>
               <h3 className="mt-2 font-heading text-xl font-bold text-ink">Pro</h3>
-              <p className="text-sm text-ink-muted">Para el negocio que quiere crecer</p>
+              <p className="text-sm text-ink-muted">Para el negocio con varias sucursales</p>
               <div className="mt-6 flex flex-wrap items-baseline gap-1">
                 <span className="font-heading text-4xl font-bold text-ink">$39</span>
                 <span className="text-sm text-ink-muted">+ IVA / mes</span>
@@ -94,7 +94,7 @@ export default function Pricing() {
               <ul className="mt-8 flex-1 space-y-2.5 text-sm text-ink-soft">
                 <li className="flex gap-2">
                   <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
-                  Staff ilimitado
+                  Varias sucursales en una misma cuenta
                 </li>
                 <li className="flex gap-2">
                   <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
@@ -131,19 +131,39 @@ export default function Pricing() {
 
           <ScrollReveal delay={160}>
             <div className="landing-pricing-card flex h-full flex-col rounded-2xl border border-border bg-chalk/90 p-8">
-              <h3 className="font-heading text-xl font-bold text-ink">Premium</h3>
-              <p className="text-sm text-ink-muted">Servicio personalizado</p>
-              <p className="mt-6 flex-1 text-sm leading-relaxed text-ink-muted">
-                Ideal si necesitas integraciones, volumen alto, varias sucursales o un flujo a tu medida.
+              <p className="text-2xl" aria-hidden>
+                🤖
               </p>
-              <div className="mt-6 text-sm">
-                <div className="font-medium text-ink">Más información</div>
-                <a href="tel:+593987122959" className="mt-1 block text-brand-primary hover:underline">
-                  +593 98 712 2959
-                </a>
+              <h3 className="mt-2 font-heading text-xl font-bold text-ink">Premium</h3>
+              <p className="text-sm text-ink-muted">Agente de chat IA para tu negocio</p>
+              <div className="mt-6 flex flex-wrap items-baseline gap-1">
+                <span className="font-heading text-4xl font-bold text-ink">$150</span>
+                <span className="text-sm text-ink-muted">USD / mes</span>
               </div>
+              <ul className="mt-8 flex-1 space-y-2.5 text-sm text-ink-soft">
+                <li className="flex gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
+                  Todo lo del plan Pro
+                </li>
+                <li className="flex gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
+                  Agente IA que administra reservas por WhatsApp
+                </li>
+                <li className="flex gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
+                  Asesoría de servicios al cliente 24/7
+                </li>
+                <li className="flex gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
+                  Reprogramaciones y cancelaciones automáticas
+                </li>
+                <li className="flex gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-brand-primary" strokeWidth={2.5} />
+                  Configuración personalizada del agente
+                </li>
+              </ul>
               <a
-                href="https://wa.me/593987122959?text=Hola%2C%20me%20interesa%20el%20plan%20Premium%20de%20TurnApp."
+                href="https://wa.me/593987122959?text=Hola%2C%20me%20interesa%20el%20plan%20Premium%20de%20TurnApp%20con%20el%20agente%20IA."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="landing-btn-primary mt-8 inline-flex justify-center py-3 text-center font-semibold"

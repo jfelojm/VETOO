@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Planes y precios | TurnApp',
-  description: 'Planes Básico, Pro y Premium para reservas online en tu negocio de belleza.',
+  description: 'Básico con staff ilimitado, Pro multi-sucursal y Premium con agente IA para reservas por WhatsApp.',
   alternates: { canonical: 'https://turnapp.lat/planes' },
 }
 
