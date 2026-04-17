@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import TrackOnMount from '@/components/analytics/TrackOnMount'
 
 export const metadata: Metadata = {
   title: 'Planes y precios | TurnApp',
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function PlanesPage() {
   return (
     <div className="min-h-screen bg-chalk px-4 py-16 text-center">
+      <TrackOnMount event="pricing_view" params={{ source: 'planes_page' }} />
       <h1 className="font-heading text-2xl font-bold text-ink md:text-3xl">Planes TurnApp</h1>
       <p className="mx-auto mt-4 max-w-md text-ink-muted">
         Compara funciones y precios en la landing. Elige el plan que encaje con tu negocio.

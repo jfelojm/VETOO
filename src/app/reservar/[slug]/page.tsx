@@ -5,6 +5,8 @@ import { getTipoConfig } from '@/lib/negocio-tipo'
 import BookingFlow from '@/components/booking/BookingFlow'
 import { MapPin, Clock, Instagram } from 'lucide-react'
 import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
+import TrackOnMount from '@/components/analytics/TrackOnMount'
+import WhatsAppLink from '@/components/analytics/WhatsAppLink'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -64,12 +66,13 @@ export default async function ReservarPage({ params }: Props) {
             Contacta directamente al negocio.
           </p>
           {negocio.telefono && (
-            <a
+            <WhatsAppLink
+              source="reserva_sin_plan"
               href={`https://wa.me/${negocio.telefono.replace(/\D/g,'')}`}
               className="mt-4 inline-block bg-brand-primary text-white px-6 py-2.5 rounded-full text-sm font-medium shadow-brand transition-all hover:bg-brand-glow hover:shadow-brand"
             >
               Contactar por WhatsApp
-            </a>
+            </WhatsAppLink>
           )}
         </div>
       </div>
@@ -99,6 +102,7 @@ export default async function ReservarPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-chalk">
+      {slug === 'demo' && <TrackOnMount event="demo_explore" params={{ source: 'demo_page_view' }} />}
 
       {/* Header del negocio */}
       <header className="border-b border-border bg-chalk">

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import WhatsAppLink from '@/components/analytics/WhatsAppLink'
 
 export default function AvisoSuscripcion({ mensaje }: { mensaje: string }) {
   return (
@@ -9,9 +10,9 @@ export default function AvisoSuscripcion({ mensaje }: { mensaje: string }) {
           Ver planes y precios
         </Link>
         {' · '}
-        <a href="https://wa.me/593987122959" target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+        <WhatsAppLink source="aviso_suscripcion" href="https://wa.me/593987122959" className="font-semibold underline">
           WhatsApp
-        </a>
+        </WhatsAppLink>
       </p>
     </div>
   )

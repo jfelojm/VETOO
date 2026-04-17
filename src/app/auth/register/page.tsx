@@ -11,6 +11,7 @@ import TurnAppLogo from '@/components/brand/TurnAppLogo'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { listTiposNegocio, type TipoNegocioId } from '@/lib/negocio-tipo'
+import { trackTrialStart } from '@/lib/analytics'
 
 const schema = z.object({
   nombre_negocio: z.string().min(2, 'Mínimo 2 caracteres'),
@@ -134,6 +135,7 @@ export default function RegisterPage() {
       }
     }
 
+    trackTrialStart('register_complete')
     setPaso('exito')
   }
 
