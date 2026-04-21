@@ -49,7 +49,14 @@ export default function RegistroPage() {
           password,
         })
         if (signInErr || !signInData.session) {
-          setErrorMsg('Revisa tu correo para confirmar la cuenta. Luego podrás iniciar sesión.')
+          const raw = (signInErr?.message ?? '').toLowerCase()
+          const esNoConfirmado =
+            raw.includes('email') && (raw.includes('confirm') || raw.includes('verify'))
+          setErrorMsg(
+            esNoConfirmado
+              ? 'Tu cuenta fue creada. Revisa tu correo para confirmar y luego ingresa con tu contraseña.'
+              : (signInErr?.message || 'No se pudo iniciar sesión. Intenta de nuevo.')
+          )
           setCargando(false)
           return
         }
