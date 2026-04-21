@@ -51,7 +51,13 @@ export default function RegistroPage() {
         return
       }
 
-      const emailNorm = email.trim().toLowerCase()
+      /** Mismo correo que en auth (formulario o sesión) */
+      const emailNorm = (user.email ?? email).trim().toLowerCase()
+      if (!emailNorm) {
+        setErrorMsg('Indica un correo electrónico válido')
+        setCargando(false)
+        return
+      }
 
       const base = slugifyClinica(nombreClinica)
       let clinicaId: string | null = null
