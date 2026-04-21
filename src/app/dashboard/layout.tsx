@@ -183,6 +183,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace('/auth/login')
         return
       }
+      // Vetoo: primero intentar resolver clínica por perfil `usuarios` (más robusto que owner_id)
+      const { data: perfil } = await supabase
+        .from('usuarios')
+        .select('clinica:clinicas(id, nombre, slug, plan, trial_expira_at, plan_expira_at)')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const clinicaViaPerfil = (perfil as { clinica?: any } | null)?.clinica
+      if (clinicaViaPerfil) {
+        setNegocio({
+          id: clinicaViaPerfil.id,
+          nombre: clinicaViaPerfil.nombre,
+          slug: clinicaViaPerfil.slug,
+          plan: clinicaViaPerfil.plan,
+          trial_expira_at: clinicaViaPerfil.trial_expira_at,
+          plan_expira_at: clinicaViaPerfil.plan_expira_at,
+          tipo_negocio: null,
+        })
+        setCargando(false)
+        return
+      }
+
+      // Fallback: algunos esquemas usan owner_id directo en `clinicas`
       const { data: clinica, error: errClinica } = await supabase
         .from('clinicas')
         .select('id, nombre, slug, plan, trial_expira_at, plan_expira_at')
