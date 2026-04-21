@@ -24,7 +24,7 @@ const nextConfig = {
       },
       /** URLs cortas para SEO / sitemap (canónico sigue siendo /auth/*) */
       { source: '/login', destination: '/auth/login', permanent: true },
-      { source: '/registro', destination: '/auth/register', permanent: true },
+      { source: '/registro', destination: '/auth/registro', permanent: true },
       /**
        * NO redirigir www → apex aquí: en Vercel suele configurarse apex → www.
        * Si ambas reglas existen, el navegador entra en bucle (ERR_TOO_MANY_REDIRECTS).

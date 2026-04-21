@@ -1,125 +1,146 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { Suspense, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Eye, EyeOff } from 'lucide-react'
-import TurnAppLogo from '@/components/brand/TurnAppLogo'
-import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-
-const schema = z.object({
-  email:    z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
-})
-type FormData = z.infer<typeof schema>
 
 function LoginForm() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const errorUrl = searchParams.get('error')
-  const [verPassword, setVerPassword] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [cargando, setCargando] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(
+    errorUrl ? decodeURIComponent(errorUrl) : null
+  )
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-  })
-
-  async function onSubmit(data: FormData) {
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
     setCargando(true)
     try {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        toast.error('Email o contraseña incorrectos')
+        setErrorMsg(error.message || 'No se pudo iniciar sesión')
         setCargando(false)
         return
       }
-      if (authData.session && authData.user) {
-        toast.success('Bienvenido')
-        const user = authData.user
-        const { data: negocioPropio } = await supabase
-          .from('negocios')
-          .select('id')
-          .eq('owner_id', user.id)
-          .maybeSingle()
-
-        const meta = user.user_metadata as Record<string, unknown> | undefined
-        const esStaff =
-          meta?.rol === 'barbero' || meta?.barbero_id != null
-
-        let dest = '/dashboard'
-        if (!negocioPropio && esStaff) dest = '/barbero/dashboard'
-        if (!negocioPropio && !esStaff) dest = '/auth/register'
-
-        setTimeout(() => {
-          window.location.replace(dest)
-        }, 500)
-      }
+      window.location.href = '/dashboard'
     } catch {
-      toast.error('Error al iniciar sesión')
+      setErrorMsg('Error de conexión. Intenta de nuevo.')
       setCargando(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="mb-2 flex justify-center">
-            <TurnAppLogo variant="light" size="lg" href="/" />
-          </div>
-          <p className="text-gray-500 text-sm">Inicia sesión en tu panel</p>
-        </div>
-
-        <div className="card">
-          {errorUrl && (
-            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              {decodeURIComponent(errorUrl)}
-            </div>
-          )}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <label className="label">Email</label>
-              <input {...register('email')} type="email" className="input" placeholder="tu@email.com" autoComplete="email" />
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-            </div>
-
-            <div>
-              <label className="label">Contraseña</label>
-              <div className="relative">
-                <input {...register('password')} type={verPassword ? 'text' : 'password'} className="input pr-10" placeholder="••••••••" autoComplete="current-password" />
-                <button type="button" onClick={() => setVerPassword(!verPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {verPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-            </div>
-
-            <button type="submit" disabled={cargando} className="btn-primary w-full">
-              {cargando ? 'Ingresando...' : 'Iniciar sesión'}
-            </button>
-          </form>
-          <div className="text-center mt-4">
-            <Link
-              href="/auth/recuperar"
-              className="text-sm text-brand-600 font-medium hover:underline"
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      style={{ backgroundColor: '#FBF7F4' }}
+    >
+      <div
+        className="w-full max-w-[420px]"
+        style={{
+          backgroundColor: '#fff',
+          border: '1px solid #EDE4DC',
+          borderRadius: 16,
+          padding: 40,
+        }}
+      >
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.svg" alt="" width={40} height={40} priority />
+            <span
+              className="font-serif"
+              style={{ fontFamily: 'Georgia, serif', fontSize: 28, color: '#2C2420' }}
             >
-              ¿Olvidaste tu contraseña?
-            </Link>
+              Vetoo
+            </span>
           </div>
+          <p style={{ color: '#7A6A62', fontSize: 14, margin: 0 }}>
+            Accede al panel de tu clínica
+          </p>
         </div>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
-          ¿No tienes cuenta?{' '}
-          <Link href="/auth/register" className="text-brand-600 font-medium hover:underline">
-            Registra tu negocio
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              style={{ display: 'block', fontSize: 13, color: '#2C2420', marginBottom: 6 }}
+            >
+              Correo electrónico
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full outline-none"
+              style={{
+                border: '1px solid #EDE4DC',
+                borderRadius: 10,
+                padding: '10px 12px',
+                fontSize: 14,
+                color: '#2C2420',
+              }}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              style={{ display: 'block', fontSize: 13, color: '#2C2420', marginBottom: 6 }}
+            >
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full outline-none"
+              style={{
+                border: '1px solid #EDE4DC',
+                borderRadius: 10,
+                padding: '10px 12px',
+                fontSize: 14,
+                color: '#2C2420',
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={cargando}
+            className="w-full border-0 font-medium text-white"
+            style={{
+              backgroundColor: '#E8845A',
+              borderRadius: 10,
+              height: 44,
+              fontWeight: 500,
+              cursor: cargando ? 'wait' : 'pointer',
+              opacity: cargando ? 0.85 : 1,
+            }}
+          >
+            {cargando ? 'Ingresando…' : 'Ingresar'}
+          </button>
+        </form>
+
+        {errorMsg ? (
+          <p className="mt-3 text-center" style={{ color: '#D95C5C', fontSize: 13 }}>
+            {errorMsg}
+          </p>
+        ) : null}
+
+        <p className="mt-6 text-center" style={{ fontSize: 14, color: '#7A6A62' }}>
+          ¿Aún no tienes cuenta?{' '}
+          <Link href="/auth/registro" style={{ color: '#E8845A', fontWeight: 500 }}>
+            Regístrate
           </Link>
         </p>
       </div>
@@ -129,11 +150,16 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Cargando…</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div
+          className="flex min-h-screen items-center justify-center"
+          style={{ backgroundColor: '#FBF7F4' }}
+        >
+          <p style={{ color: '#7A6A62', fontSize: 14 }}>Cargando…</p>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   )

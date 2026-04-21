@@ -1,7 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { handleSupabaseAuthCallback } from '@/lib/auth/supabase-auth-callback'
 
-/** Compatibilidad con URLs antiguas (`/api/auth/callback`). Preferir `/auth/callback` en Supabase. */
 export async function GET(request: NextRequest) {
   return handleSupabaseAuthCallback(request)
 }

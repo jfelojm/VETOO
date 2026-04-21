@@ -183,6 +183,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace('/auth/login')
         return
       }
+      const { data: clinica, error: errClinica } = await supabase
+        .from('clinicas')
+        .select('id, nombre, slug, plan, trial_expira_at, plan_expira_at')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+
+      if (!errClinica && clinica) {
+        setNegocio({
+          id: clinica.id,
+          nombre: clinica.nombre,
+          slug: clinica.slug,
+          plan: clinica.plan,
+          trial_expira_at: clinica.trial_expira_at,
+          plan_expira_at: clinica.plan_expira_at,
+          tipo_negocio: null,
+        })
+        setCargando(false)
+        return
+      }
+
       const { data } = await supabase
         .from('negocios')
         .select('id, nombre, slug, plan, trial_expira_at, plan_expira_at, tipo_negocio')
@@ -194,7 +214,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           router.replace('/barbero/dashboard')
           return
         }
-        router.replace('/auth/register')
+        router.replace('/auth/registro')
         return
       }
       setNegocio(data as typeof negocio)
@@ -207,7 +227,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen flex items-center justify-center bg-chalk">
         <div className="text-center">
-          <TurnAppSymbol size={36} color="#0D9B6A" className="mx-auto mb-3 animate-pulse" aria-hidden />
+          <TurnAppSymbol size={36} color="#E8845A" className="mx-auto mb-3 animate-pulse" aria-hidden />
           <p className="text-ink-muted text-sm">Cargando tu panel...</p>
         </div>
       </div>

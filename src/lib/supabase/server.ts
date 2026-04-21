@@ -1,4 +1,6 @@
+import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import type { NextRequest, NextResponse } from 'next/server'
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321'
@@ -16,4 +18,22 @@ export function createAdminClient() {
     url,
     service
   )
+}
+
+/** Cliente Supabase para middleware (`@supabase/ssr`): mantiene la sesión en cookies. */
+export function createMiddlewareSupabaseClient(request: NextRequest, response: NextResponse) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321'
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon'
+  return createServerClient(url, anon, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options)
+        })
+      },
+    },
+  })
 }
