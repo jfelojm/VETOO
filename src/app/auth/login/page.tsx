@@ -28,11 +28,15 @@ export default function LoginPage() {
     setCargando(true)
     try {
       const next = getSearchParam('next') || '/dashboard'
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       if (error) {
         setErrorMsg(error.message || 'No se pudo iniciar sesión')
         setCargando(false)
         return
+      }
+      if (data.session) {
+        // Fuerza persistencia (cookies/localStorage según cliente) para que middleware lo lea
+        await supabase.auth.setSession(data.session)
       }
       // Asegura que la sesión se haya establecido antes de entrar a rutas protegidas
       await supabase.auth.getSession()

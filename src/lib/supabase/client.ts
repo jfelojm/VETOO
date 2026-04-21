@@ -7,5 +7,11 @@ export function createClient() {
    * En App Router + middleware SSR, usar PKCE (default) para que la sesión se
    * sincronice correctamente vía cookies y el middleware no “pierda” la sesión.
    */
-  return createBrowserClient(url, anon)
+  return createBrowserClient(url, anon, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
 }
