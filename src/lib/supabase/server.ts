@@ -29,7 +29,10 @@ export function createMiddlewareSupabaseClient(request: NextRequest, response: N
       getAll() {
         return request.cookies.getAll()
       },
-      setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+      setAll(
+        cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[],
+        headers?: Record<string, string>
+      ) {
         cookiesToSet.forEach(({ name, value, options }) => {
           // Mantener request/response sincronizados (recomendado por Supabase para middleware)
           try {
@@ -39,6 +42,11 @@ export function createMiddlewareSupabaseClient(request: NextRequest, response: N
           }
           response.cookies.set(name, value, options)
         })
+        if (headers) {
+          for (const [k, v] of Object.entries(headers)) {
+            response.headers.set(k, v)
+          }
+        }
       },
     },
   })

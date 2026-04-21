@@ -23,17 +23,18 @@ export async function GET() {
     }
   )
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
+  const [{ data: userData, error }, { data: claimsData }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getClaims(),
+  ])
 
   const cookieNames = cookieStore.getAll().map(c => c.name).sort()
   const supabaseCookies = cookieNames.filter(n => n.startsWith('sb-'))
 
   return NextResponse.json({
     ok: true,
-    user: user ? { id: user.id, email: user.email } : null,
+    user: userData.user ? { id: userData.user.id, email: userData.user.email } : null,
+    claimsSub: claimsData?.claims?.sub ?? null,
     error: error?.message ?? null,
     cookies: supabaseCookies,
   })

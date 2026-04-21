@@ -5,9 +5,8 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
   response.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate')
   const supabase = createMiddlewareSupabaseClient(request, response)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: claims } = await supabase.auth.getClaims()
+  const user = claims?.claims?.sub ? { id: claims.claims.sub } : null
 
   const path = request.nextUrl.pathname
 
