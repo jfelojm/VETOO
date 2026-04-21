@@ -1,17 +1,23 @@
 {
-  "name": "TurnApp",
-  "short_name": "TurnApp",
-  "description": "Reservas online para tu negocio de belleza y bienestar",
+  "name": "Vetoo",
+  "short_name": "Vetoo",
+  "description": "Gestión digital para clínicas veterinarias",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fafaf9",
-  "theme_color": "#0D9B6A",
+  "background_color": "#FBF7F4",
+  "theme_color": "#E8845A",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon",
-      "sizes": "32x32",
-      "type": "image/png",
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
       "purpose": "any"
     },
     {

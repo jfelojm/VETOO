@@ -51,6 +51,8 @@ export default function RegistroPage() {
         return
       }
 
+      const emailNorm = email.trim().toLowerCase()
+
       const base = slugifyClinica(nombreClinica)
       let clinicaId: string | null = null
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -60,7 +62,7 @@ export default function RegistroPage() {
           .insert({
             nombre: nombreClinica.trim(),
             slug,
-            email: email.trim().toLowerCase(),
+            email: emailNorm,
             owner_id: user.id,
           })
           .select('id')
@@ -87,6 +89,7 @@ export default function RegistroPage() {
         id: user.id,
         clinica_id: clinicaId,
         nombre: nombreUsuario.trim(),
+        email: emailNorm,
         rol: 'admin',
       })
 

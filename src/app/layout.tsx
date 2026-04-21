@@ -19,8 +19,8 @@ const dmSans = DM_Sans({
   display: 'swap',
 })
 
-/** Dominio canónico (SEO) — no usar env aquí para evitar dominios duplicados en indexación */
-const SITE_URL = 'https://turnapp.lat'
+/** Dominio canónico (SEO) — preferir NEXT_PUBLIC_APP_URL en producción */
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://turnapp.lat'
 
 const GA_ID =
   process.env.NEXT_PUBLIC_GA_ID ||
@@ -33,31 +33,29 @@ export const metadata: Metadata = {
     /** Resuelve a la URL absoluta de la ruta actual (p. ej. /dashboard → https://turnapp.lat/dashboard) */
     canonical: './',
   },
-  title: 'TurnApp — Reservas online para tu negocio',
+  title: 'Vetoo — Gestión para clínicas veterinarias',
   description:
-    'Tus clientes reservan desde Instagram o WhatsApp. Tú gestionas todo desde un panel simple.',
+    'Gestión digital para clínicas veterinarias en Ecuador. Agenda, pacientes y más en un solo lugar.',
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icon', sizes: '32x32', type: 'image/png' },
-    ],
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml', sizes: 'any' }],
+    shortcut: ['/favicon.ico'],
     apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
   },
   openGraph: {
-    title: 'TurnApp — Reservas online para tu negocio',
+    title: 'Vetoo — Gestión para clínicas veterinarias',
     description:
-      'Tus clientes reservan desde Instagram o WhatsApp. Tú gestionas todo desde un panel simple.',
+      'Gestión digital para clínicas veterinarias en Ecuador.',
     url: SITE_URL,
-    siteName: 'TurnApp',
+    siteName: 'Vetoo',
     locale: 'es_EC',
     type: 'website',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'TurnApp' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Vetoo' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TurnApp — Reservas online para tu negocio',
+    title: 'Vetoo — Gestión para clínicas veterinarias',
     description:
-      'Tus clientes reservan desde Instagram o WhatsApp. Tú gestionas todo desde un panel simple.',
+      'Gestión digital para clínicas veterinarias en Ecuador.',
     images: ['/twitter-image'],
   },
 }
@@ -72,9 +70,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           content="4Thv0XFzGovF9kU6c_x3ruRaAp1vyjHHPWxJDKBLadU"
         />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#0D9B6A" />
+        <meta name="theme-color" content="#E8845A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="TurnApp" />
+        <meta name="apple-mobile-web-app-title" content="Vetoo" />
       </head>
       <body className={dmSans.className}>
         <Analytics gaId={GA_ID} />
