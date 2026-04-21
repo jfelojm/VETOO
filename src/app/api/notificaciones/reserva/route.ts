@@ -7,10 +7,22 @@ import {
   htmlEmailConfirmacionReserva,
 } from '@/lib/emails/transactional-html'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  return new Resend(key)
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const resend = getResend()
+    if (!resend) {
+      return NextResponse.json(
+        { ok: false, error: 'RESEND_API_KEY no configurada' },
+        { status: 503 }
+      )
+    }
+
     const body = await req.json()
     const {
       negocio_email,

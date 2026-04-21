@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ETIQUETA_STAFF, getTipoConfig } from '@/lib/negocio-tipo'
 import TurnAppLogo, { TurnAppSymbol } from '@/components/brand/TurnAppLogo'
+import Sidebar from '@/components/layout/Sidebar'
 import {
   Scissors,
   Calendar,
@@ -56,6 +57,23 @@ const DASHBOARD_TITLE_OVERRIDES: Record<string, string> = {
   '/dashboard/planes': 'Planes y facturación',
   '/dashboard/bloqueos': 'Bloqueos de agenda',
   '/dashboard/reportes': 'Reportes avanzados',
+}
+
+function getVetooActiveItem(pathname: string) {
+  if (pathname === '/dashboard') return 'agenda'
+  if (pathname.startsWith('/dashboard/pacientes')) return 'pacientes'
+  if (pathname.startsWith('/dashboard/vacunacion')) return 'vacunacion'
+  if (pathname.startsWith('/dashboard/mi-web')) return 'miweb'
+  if (pathname.startsWith('/dashboard/configuracion')) return 'configuracion'
+  return 'agenda'
+}
+
+function planLabel(plan: string) {
+  if (plan === 'pro') return 'Plan Pro'
+  if (plan === 'basic') return 'Plan Basic'
+  if (plan === 'premium') return 'Plan Premium'
+  if (plan === 'trial') return 'Plan Trial'
+  return `Plan ${plan}`
 }
 
 function getDashboardMeta(pathname: string): {
@@ -417,19 +435,15 @@ function DashboardShell({
   }, [supabase])
 
   return (
-    <div className="min-h-screen bg-chalk flex">
+    <div className="flex min-h-screen">
       {/* Sidebar escritorio */}
-      <aside className="hidden md:flex w-60 flex-col fixed inset-y-0 left-0 z-40 bg-ink border-r border-white/[0.06]">
-        <SidebarContent
-          negocio={negocio}
-          pathname={pathname}
-          capacidades={capacidades}
-          tipoCfg={tipoCfg}
-          TipoSidebarIcon={TipoSidebarIcon}
-          diasTrial={diasTrial}
-          cerrarSesion={cerrarSesion}
+      <div className="hidden md:block">
+        <Sidebar
+          clinicaName={negocio.nombre}
+          planName={planLabel(negocio.plan)}
+          activeItem={getVetooActiveItem(pathname)}
         />
-      </aside>
+      </div>
 
       {/* Drawer móvil */}
       {mobileOpen && (
@@ -440,24 +454,17 @@ function DashboardShell({
             aria-label="Cerrar menú"
             onClick={closeMobile}
           />
-          <aside className="absolute left-0 top-0 bottom-0 flex w-60 max-w-[100vw] flex-col bg-ink shadow-lg">
-            <SidebarContent
-              negocio={negocio}
-              pathname={pathname}
-              capacidades={capacidades}
-              tipoCfg={tipoCfg}
-              TipoSidebarIcon={TipoSidebarIcon}
-              diasTrial={diasTrial}
-              onNavigate={closeMobile}
-              cerrarSesion={cerrarSesion}
-              showCloseButton
-              onClose={closeMobile}
+          <div className="absolute left-0 top-0 bottom-0 w-[220px] max-w-[100vw] shadow-lg">
+            <Sidebar
+              clinicaName={negocio.nombre}
+              planName={planLabel(negocio.plan)}
+              activeItem={getVetooActiveItem(pathname)}
             />
-          </aside>
+          </div>
         </div>
       )}
 
-      <div className="flex min-h-screen w-full flex-1 flex-col bg-surface md:ml-60">
+      <div className="flex min-h-screen w-full flex-1 flex-col bg-[#FBF7F4] md:ml-[220px]">
         <DashboardMainHeader
           pathname={pathname}
           userEmail={userEmail}

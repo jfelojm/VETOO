@@ -9,13 +9,20 @@ import {
   htmlEmailRecordatorioReserva,
 } from '@/lib/emails/transactional-html'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL
+
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  return new Resend(key)
+}
 
 export async function GET(req: NextRequest) {
   if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
+
+  const resend = getResend()
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -102,7 +109,7 @@ export async function GET(req: NextRequest) {
       `${barbero ? `Profesional: ${barbero.nombre}. ` : ''}` +
       `Fecha: ${fechaStr}.`
 
-    if (emailOn && cliente?.email?.trim()) {
+    if (resend && emailOn && cliente?.email?.trim()) {
       try {
         const slug = (negocio?.slug ?? '').trim() || 'reservar'
         const html = htmlEmailRecordatorioReserva({

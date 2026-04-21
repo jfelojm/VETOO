@@ -6,11 +6,18 @@ import {
   htmlEmailConfirmacionReserva,
 } from '@/lib/emails/transactional-html'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL
+
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  return new Resend(key)
+}
 
 // Email de confirmación al cliente
 export async function emailConfirmacionCliente(reserva: Reserva) {
+  const resend = getResend()
+  if (!resend) return
   const negocio = reserva.negocio!
   const nombreCli = nombreClienteReservaRow(reserva)
   const email = reserva.cliente!.email || ''
@@ -40,6 +47,8 @@ export async function emailConfirmacionCliente(reserva: Reserva) {
 
 // Email de aviso al barbero cuando llega una nueva reserva
 export async function emailNuevaReservaNegocio(reserva: Reserva) {
+  const resend = getResend()
+  if (!resend) return
   const negocio = reserva.negocio!
   const fecha = formatFecha(reserva.fecha_hora)
   const nombreCli = nombreClienteReservaRow(reserva)
@@ -72,6 +81,8 @@ export async function emailNuevaReservaNegocio(reserva: Reserva) {
 
 // Email de cancelación
 export async function emailCancelacion(reserva: Reserva, canceladaPor: 'cliente' | 'negocio') {
+  const resend = getResend()
+  if (!resend) return
   const negocio = reserva.negocio!
   const fecha = formatFecha(reserva.fecha_hora)
   const clienteEmail = reserva.cliente!.email
@@ -111,6 +122,8 @@ export async function emailInvitacionStaff({
   negocioNombre: string
   linkInvitacion: string
 }) {
+  const resend = getResend()
+  if (!resend) return
   await resend.emails.send({
     from: FROM,
     to: email,
