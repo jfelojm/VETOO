@@ -37,9 +37,8 @@ export const metadata: Metadata = {
   description:
     'Gestión digital para clínicas veterinarias en Ecuador. Agenda, pacientes y más en un solo lugar.',
   icons: {
-    icon: [{ url: '/favicon.svg', type: 'image/svg+xml', sizes: 'any' }],
-    shortcut: ['/favicon.ico'],
-    apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
   },
   openGraph: {
     title: 'Vetoo — Gestión para clínicas veterinarias',
