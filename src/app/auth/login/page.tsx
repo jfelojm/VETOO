@@ -1,34 +1,42 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-function LoginForm() {
-  const supabase = createClient()
-  const searchParams = useSearchParams()
-  const errorUrl = searchParams.get('error')
+function getSearchParam(name: string) {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get(name)
+}
+
+export default function LoginPage() {
+  const supabase = useMemo(() => createClient(), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [cargando, setCargando] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(
-    errorUrl ? decodeURIComponent(errorUrl) : null
-  )
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    const err = getSearchParam('error')
+    if (err) setErrorMsg(decodeURIComponent(err))
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrorMsg(null)
     setCargando(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const next = getSearchParam('next') || '/dashboard'
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       if (error) {
         setErrorMsg(error.message || 'No se pudo iniciar sesión')
         setCargando(false)
         return
       }
-      window.location.href = '/dashboard'
+      // Asegura que la sesión se haya establecido antes de entrar a rutas protegidas
+      await supabase.auth.getSession()
+      window.location.href = next
     } catch {
       setErrorMsg('Error de conexión. Intenta de nuevo.')
       setCargando(false)
@@ -145,22 +153,5 @@ function LoginForm() {
         </p>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div
-          className="flex min-h-screen items-center justify-center"
-          style={{ backgroundColor: '#FBF7F4' }}
-        >
-          <p style={{ color: '#7A6A62', fontSize: 14 }}>Cargando…</p>
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
   )
 }
