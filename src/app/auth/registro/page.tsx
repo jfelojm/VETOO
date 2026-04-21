@@ -24,11 +24,15 @@ export default function RegistroPage() {
     }
     setCargando(true)
     try {
+      const emailRaw = email.trim()
+      const emailNorm = emailRaw.toLowerCase()
+      const nombre = nombreUsuario.trim()
+
       const { data: authData, error: signErr } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: emailRaw,
         password,
         options: {
-          data: { nombre: nombreUsuario.trim() },
+          data: { nombre },
         },
       })
       if (signErr) {
@@ -36,25 +40,25 @@ export default function RegistroPage() {
         setCargando(false)
         return
       }
-      const user = authData.user
-      if (!user) {
-        setErrorMsg('No se pudo crear la cuenta')
-        setCargando(false)
-        return
-      }
 
+      // Si "Confirm email" está activado, `signUp` puede no devolver sesión.
+      // Intentamos iniciar sesión igual; si falla, mostramos el mensaje de confirmación.
       if (!authData.session) {
-        setErrorMsg(
-          'Revisa tu correo para confirmar la cuenta. Luego podrás iniciar sesión.'
-        )
-        setCargando(false)
-        return
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: emailRaw,
+          password,
+        })
+        if (signInErr || !signInData.session) {
+          setErrorMsg('Revisa tu correo para confirmar la cuenta. Luego podrás iniciar sesión.')
+          setCargando(false)
+          return
+        }
       }
 
-      /** Mismo correo que en auth (formulario o sesión) */
-      const emailNorm = (user.email ?? email).trim().toLowerCase()
-      if (!emailNorm) {
-        setErrorMsg('Indica un correo electrónico válido')
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData.user
+      if (!user) {
+        setErrorMsg('No se pudo iniciar sesión después del registro')
         setCargando(false)
         return
       }
@@ -94,7 +98,7 @@ export default function RegistroPage() {
       const { error: uErr } = await supabase.from('usuarios').insert({
         id: user.id,
         clinica_id: clinicaId,
-        nombre: nombreUsuario.trim(),
+        nombre,
         email: emailNorm,
         rol: 'admin',
       })
