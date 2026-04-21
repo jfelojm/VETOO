@@ -183,32 +183,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace('/auth/login')
         return
       }
-      // Vetoo: primero intentar resolver clínica por perfil `usuarios` (más robusto que owner_id)
-      const { data: perfil } = await supabase
+      // Vetoo: primero intentar resolver clínica por perfil `usuarios` (evita depender de FK/embeds en PostgREST)
+      const { data: perfil, error: errPerfil } = await supabase
         .from('usuarios')
-        .select('clinica:clinicas(id, nombre, slug, plan, trial_expira_at, plan_expira_at)')
+        .select('clinica_id')
         .eq('id', user.id)
         .maybeSingle()
 
-      const clinicaViaPerfil = (perfil as { clinica?: any } | null)?.clinica
-      if (clinicaViaPerfil) {
-        setNegocio({
-          id: clinicaViaPerfil.id,
-          nombre: clinicaViaPerfil.nombre,
-          slug: clinicaViaPerfil.slug,
-          plan: clinicaViaPerfil.plan,
-          trial_expira_at: clinicaViaPerfil.trial_expira_at,
-          plan_expira_at: clinicaViaPerfil.plan_expira_at,
-          tipo_negocio: null,
-        })
-        setCargando(false)
-        return
+      const clinicaIdViaPerfil = (perfil as { clinica_id?: string } | null)?.clinica_id
+      if (!errPerfil && clinicaIdViaPerfil) {
+        const { data: clinicaRow } = await supabase
+          .from('clinicas')
+          .select('*')
+          .eq('id', clinicaIdViaPerfil)
+          .maybeSingle()
+
+        if (clinicaRow) {
+          setNegocio({
+            id: clinicaRow.id,
+            nombre: clinicaRow.nombre,
+            slug: clinicaRow.slug,
+            plan: clinicaRow.plan ?? 'trial',
+            trial_expira_at: clinicaRow.trial_expira_at ?? null,
+            plan_expira_at: clinicaRow.plan_expira_at ?? null,
+            tipo_negocio: null,
+          })
+          setCargando(false)
+          return
+        }
       }
 
-      // Fallback: algunos esquemas usan owner_id directo en `clinicas`
+      // Fallback: algunos esquemas usan owner_id directo en `clinicas` (pero columnas pueden variar)
       const { data: clinica, error: errClinica } = await supabase
         .from('clinicas')
-        .select('id, nombre, slug, plan, trial_expira_at, plan_expira_at')
+        .select('*')
         .eq('owner_id', user.id)
         .maybeSingle()
 
@@ -217,9 +225,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           id: clinica.id,
           nombre: clinica.nombre,
           slug: clinica.slug,
-          plan: clinica.plan,
-          trial_expira_at: clinica.trial_expira_at,
-          plan_expira_at: clinica.plan_expira_at,
+          plan: clinica.plan ?? 'trial',
+          trial_expira_at: clinica.trial_expira_at ?? null,
+          plan_expira_at: clinica.plan_expira_at ?? null,
           tipo_negocio: null,
         })
         setCargando(false)
