@@ -31,6 +31,12 @@ export function createMiddlewareSupabaseClient(request: NextRequest, response: N
       },
       setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
         cookiesToSet.forEach(({ name, value, options }) => {
+          // Mantener request/response sincronizados (recomendado por Supabase para middleware)
+          try {
+            request.cookies.set(name, value)
+          } catch {
+            // ignore (algunas runtimes no permiten mutar request)
+          }
           response.cookies.set(name, value, options)
         })
       },
